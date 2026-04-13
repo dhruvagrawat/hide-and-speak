@@ -1,0 +1,14 @@
+{
+  "name": "hidea-speak-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile": "npm run android --workspace=apps/mobile",
+    "mobile:start": "npm run start --workspace=apps/mobile",
+    "web": "npm run dev --workspace=apps/web"
+  }
+}

@@ -1,0 +1,19 @@
+node_modules/
+
+# Expo build artifacts
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/expo-env.d.ts
+web-build/
+
+# Next.js build artifacts
+apps/web/.next/
+apps/web/out/
+
+# Secrets — never commit these
+**/.env.local
+**/.env.*.local
+
+# OS
+.DS_Store
+*.log
