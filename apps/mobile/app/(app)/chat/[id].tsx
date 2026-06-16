@@ -14,6 +14,7 @@ import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/
 import { useIsOnline } from '@/lib/presence';
 import { useActiveConversationRef } from '@/lib/activeConversation';
 import { sendImageP2P } from '@/lib/p2p';
+import { Avatar } from '@/components/Avatar';
 
 export default function ChatScreen() {
   const { id: conversationId, username } = useLocalSearchParams<{ id: string; username: string }>();
@@ -298,10 +299,8 @@ export default function ChatScreen() {
     return (
       <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
         {!isMine && (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(item.sender?.username ?? '?')[0].toUpperCase()}
-            </Text>
+          <View style={{ marginBottom: 2 }}>
+            <Avatar username={item.sender?.username} avatarUrl={item.sender?.avatar_url} size={28} />
           </View>
         )}
 

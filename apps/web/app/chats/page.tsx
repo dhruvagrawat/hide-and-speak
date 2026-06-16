@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Conversation, Profile } from '@/lib/types';
-import { IS_DEMO, DEMO_USER_ID, DEMO_CONVERSATIONS } from '@/lib/demo';
+import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
+import { Avatar } from '@/components/Avatar';
 
 function ConversationRow({
   conversation,
@@ -25,8 +26,8 @@ function ConversationRow({
         onClick={() => router.push(`/chats/${conversation.id}`)}
         className="flex w-full items-center gap-3 px-6 py-4 text-left transition-colors hover:bg-[#181818]"
       >
-        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#7C5CBF] text-lg font-bold text-white">
-          {(conversation.other_user?.username ?? '?')[0].toUpperCase()}
+        <span className="relative shrink-0">
+          <Avatar username={conversation.other_user?.username} avatarUrl={conversation.other_user?.avatar_url} size={48} />
           {online && (
             <span className="absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0D0D0D] bg-[#4CAF50]" />
           )}
@@ -50,6 +51,7 @@ export default function ChatsPage() {
   const [conversations, setConversations] = useState<Conversation[]>(IS_DEMO ? DEMO_CONVERSATIONS : []);
   const [loading, setLoading] = useState(!IS_DEMO);
   const [currentUserId, setCurrentUserId] = useState<string | null>(IS_DEMO ? DEMO_USER_ID : null);
+  const [ownProfile, setOwnProfile] = useState<Profile | null>(IS_DEMO ? DEMO_PROFILE : null);
   const [showNewChat, setShowNewChat] = useState(false);
   const [searchEmail, setSearchEmail] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -122,6 +124,8 @@ export default function ChatsPage() {
         return;
       }
       setCurrentUserId(user.id);
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (profile) setOwnProfile(profile as Profile);
       await fetchConversations(user.id);
       setLoading(false);
     });
@@ -201,7 +205,12 @@ export default function ChatsPage() {
   return (
     <main className="flex flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-[#2A2A2A] px-6 py-4">
-        <h1 className="text-lg font-semibold text-[#F5F5F5]">Chats</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push('/profile')} aria-label="Your profile">
+            <Avatar username={ownProfile?.username} avatarUrl={ownProfile?.avatar_url} size={32} />
+          </button>
+          <h1 className="text-lg font-semibold text-[#F5F5F5]">Chats</h1>
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowNewChat(true)}

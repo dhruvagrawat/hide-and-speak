@@ -54,16 +54,22 @@ supabase/schema.sql
 supabase/patch_001_fix_rls.sql
 supabase/patch_002_fix_recursion.sql
 supabase/patch_003_fix_messages.sql
+supabase/patch_004_avatars.sql
 ```
+
+See `supabase/SUPABASE_SETUP.md` for everything else (storage buckets,
+email, Google OAuth, Vonage) — full dashboard walkthrough.
 
 ### 3. Create storage buckets
 
-In your Supabase dashboard → **Storage → New bucket**:
+In your Supabase dashboard → **Storage → New bucket**, before running
+`patch_004_avatars.sql` (it adds policies for the `avatars` bucket):
 
 | Bucket name | Public? |
 |-------------|---------|
 | `chat-images` | No (private) |
 | `voice-notes` | No (private) |
+| `avatars` | **Yes** (public) |
 
 ### 4. Configure the app
 

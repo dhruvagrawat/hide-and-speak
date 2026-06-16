@@ -28,6 +28,10 @@ export default function AppLayout() {
             name="chat/[id]"
             options={{ headerShown: true }}
           />
+          <Stack.Screen
+            name="profile"
+            options={{ headerShown: false, presentation: 'modal' }}
+          />
         </Stack>
         <NewMessageBanner />
       </ActiveConversationProvider>

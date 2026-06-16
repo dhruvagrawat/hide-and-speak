@@ -7,8 +7,9 @@ import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { Conversation, Profile } from '@/lib/types';
-import { IS_DEMO, DEMO_USER_ID, DEMO_CONVERSATIONS } from '@/lib/demo';
+import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
+import { Avatar } from '@/components/Avatar';
 
 function ConversationRow({ item, formatTime }: { item: Conversation; formatTime: (iso: string) => string }) {
   const online = useIsOnline(item.other_user?.id);
@@ -25,10 +26,8 @@ function ConversationRow({ item, formatTime }: { item: Conversation; formatTime:
       activeOpacity={0.7}
     >
       {/* Avatar */}
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {(item.other_user?.username ?? '?')[0].toUpperCase()}
-        </Text>
+      <View>
+        <Avatar username={item.other_user?.username} avatarUrl={item.other_user?.avatar_url} size={48} />
         {online && <View style={styles.onlineDot} />}
       </View>
       {/* Info */}
@@ -49,6 +48,7 @@ export default function ChatList() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [ownProfile, setOwnProfile] = useState<Profile | null>(IS_DEMO ? DEMO_PROFILE : null);
 
   // New chat modal
   const [showNewChat, setShowNewChat] = useState(false);
@@ -140,6 +140,8 @@ export default function ChatList() {
     } = await supabase.auth.getUser();
     if (!user) return;
     setCurrentUserId(user.id);
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    if (profile) setOwnProfile(profile as Profile);
     await fetchConversations(user.id);
     setLoading(false);
   }, [fetchConversations]);
@@ -237,9 +239,14 @@ export default function ChatList() {
     <View style={styles.container}>
       {/* Header actions */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
-          <Text style={styles.signOutText}>{IS_DEMO ? '🧪 Demo' : 'Sign out'}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.push('/(app)/profile')} activeOpacity={0.8}>
+            <Avatar username={ownProfile?.username} avatarUrl={ownProfile?.avatar_url} size={32} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
+            <Text style={styles.signOutText}>{IS_DEMO ? '🧪 Demo' : 'Sign out'}</Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity style={styles.newChatBtn} onPress={() => setShowNewChat(true)}>
           <Text style={styles.newChatIcon}>✎</Text>
           <Text style={styles.newChatText}>New chat</Text>
@@ -306,6 +313,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   signOutBtn: { padding: 6 },
   signOutText: { color: Colors.textSecondary, fontSize: 14 },
   newChatBtn: {

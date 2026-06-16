@@ -7,6 +7,7 @@ import { Message, PendingImage, Profile } from '@/lib/types';
 import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
 import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
+import { Avatar } from '@/components/Avatar';
 
 export default function ChatThreadPage() {
   const params = useParams<{ id: string }>();
@@ -235,7 +236,10 @@ export default function ChatThreadPage() {
           const isMine = m.sender_id === currentUserId;
           const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           return (
-            <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`flex items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
+              {!isMine && (
+                <Avatar username={m.sender?.username ?? otherUser?.username} avatarUrl={m.sender?.avatar_url ?? otherUser?.avatar_url} size={28} />
+              )}
               <div
                 className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 ${
                   isMine

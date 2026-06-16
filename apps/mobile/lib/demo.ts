@@ -14,21 +14,21 @@ export const DEMO_PROFILE: Profile = {
   id: DEMO_USER_ID,
   username: 'you',
   email: 'you@demo.local',
-  avatar_url: null,
+  avatar_url: 'https://i.pravatar.cc/300?u=hidespeak-demo-you',
 };
 
 const FRIEND: Profile = {
   id: 'demo-friend-1',
   username: 'Maya',
   email: 'maya@demo.local',
-  avatar_url: null,
+  avatar_url: 'https://i.pravatar.cc/300?u=hidespeak-demo-maya',
 };
 
 const OLD_FRIEND: Profile = {
   id: 'demo-friend-2',
   username: 'Theo',
   email: 'theo@demo.local',
-  avatar_url: null,
+  avatar_url: null, // demos the initials fallback too
 };
 
 export const DEMO_CONVERSATIONS: Conversation[] = [

@@ -8,22 +8,29 @@ done by hand, once, per Supabase project. Project ref currently in use:
 ## 1. Database schema
 
 SQL Editor → run, in order: `schema.sql`, `patch_001_fix_rls.sql`,
-`patch_002_fix_recursion.sql`, `patch_003_fix_messages.sql`. See
-`supabase/README.md` for what each one actually does.
+`patch_002_fix_recursion.sql`, `patch_003_fix_messages.sql`,
+`patch_004_avatars.sql`. See `supabase/README.md` for what each one
+actually does.
 
 ## 2. Storage buckets
 
-Storage → New bucket, twice:
+Storage → New bucket:
 
 | Bucket | Public? |
 |---|---|
 | `chat-images` | No |
 | `voice-notes` | No |
+| `avatars` | **Yes** |
 
-Both private — access goes through the anon key + RLS, same as every
-other table. Nothing in the schema creates these for you (Supabase
-doesn't let you create storage buckets via plain SQL the way you create
-tables), so this step is dashboard-only.
+`chat-images`/`voice-notes` stay private — access goes through the anon
+key + RLS, same as every other table. `avatars` is public (profile
+pictures are meant to be visible to anyone, like every other chat app) —
+`patch_004_avatars.sql` still restricts who can *upload/replace/delete*
+to "only your own", it just doesn't gate reads.
+
+Nothing in the schema creates buckets for you (Supabase doesn't let you
+create storage buckets via plain SQL the way you create tables), so this
+step is dashboard-only — run the SQL patch *after* creating the bucket.
 
 ## 3. Email auth (signup/login)
 
