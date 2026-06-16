@@ -110,6 +110,19 @@ export const DEMO_MESSAGES: Record<string, Message[]> = {
   ],
   'demo-conv-2': [
     {
+      id: 'demo-msg-6',
+      conversation_id: 'demo-conv-2',
+      sender_id: OLD_FRIEND.id,
+      content: null,
+      message_type: 'voice_note',
+      image_url: null,
+      image_hidden: false,
+      image_filter: null,
+      voice_note_url: 'https://www.w3schools.com/html/horse.mp3',
+      created_at: new Date(Date.now() - 87_000_000).toISOString(),
+      sender: OLD_FRIEND,
+    },
+    {
       id: 'demo-msg-5',
       conversation_id: 'demo-conv-2',
       sender_id: OLD_FRIEND.id,

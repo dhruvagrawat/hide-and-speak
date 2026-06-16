@@ -8,6 +8,7 @@ import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
 import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
 import { Avatar } from '@/components/Avatar';
+import { VoiceRecorderButton, VoiceNoteBubble } from '@/components/VoiceNote';
 
 export default function ChatThreadPage() {
   const params = useParams<{ id: string }>();
@@ -186,7 +187,13 @@ export default function ChatThreadPage() {
         .upload(fileName, pending.file, { upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from('chat-images').getPublicUrl(uploadData.path);
+      // chat-images is a private bucket — a signed URL (not getPublicUrl,
+      // which only works on public buckets) is what actually lets the
+      // image load. See supabase/patch_006_chat_storage.sql.
+      const { data: urlData, error: signError } = await supabase.storage
+        .from('chat-images')
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+      if (signError || !urlData) throw signError ?? new Error('Could not sign image URL');
 
       const { data, error: msgError } = await supabase
         .from('messages')
@@ -195,9 +202,69 @@ export default function ChatThreadPage() {
           sender_id: currentUserId,
           content: null,
           message_type: 'image',
-          image_url: urlData.publicUrl,
+          image_url: urlData.signedUrl,
           image_hidden: pending.hidden,
           image_filter: pending.filter,
+        })
+        .select()
+        .single();
+      if (msgError) throw msgError;
+
+      if (data) setMessages((prev) => [...prev, data as Message]);
+    } catch (err) {
+      alert(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendVoiceNote = async (blob: Blob, mimeType: string) => {
+    if (!currentUserId) return;
+    setSending(true);
+
+    if (IS_DEMO) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `demo_voice_${Date.now()}`,
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          content: null,
+          message_type: 'voice_note',
+          image_url: null,
+          image_hidden: false,
+          image_filter: null,
+          voice_note_url: URL.createObjectURL(blob),
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      setSending(false);
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'm4a' : 'ogg';
+      const fileName = `${conversationId}/${Date.now()}.${ext}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('voice-notes')
+        .upload(fileName, blob, { upsert: false, contentType: mimeType });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData, error: signError } = await supabase.storage
+        .from('voice-notes')
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+      if (signError || !urlData) throw signError ?? new Error('Could not sign voice note URL');
+
+      const { data, error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          content: null,
+          message_type: 'voice_note',
+          voice_note_url: urlData.signedUrl,
         })
         .select()
         .single();
@@ -253,6 +320,9 @@ export default function ChatThreadPage() {
                 {m.message_type === 'image' && m.image_url && (
                   <ImageMessage imageUrl={m.image_url} hidden={m.image_hidden} filter={m.image_filter} />
                 )}
+                {m.message_type === 'voice_note' && m.voice_note_url && (
+                  <VoiceNoteBubble uri={m.voice_note_url} />
+                )}
                 <p className="mt-1 text-right text-[10px] text-[#555555]">{time}</p>
               </div>
             </div>
@@ -263,6 +333,7 @@ export default function ChatThreadPage() {
 
       <div className="mx-auto flex w-full max-w-2xl items-end gap-2 border-t border-[#2A2A2A] bg-[#181818] px-3 py-3">
         <ImagePickerButton onImageReady={sendImage} />
+        <VoiceRecorderButton onRecorded={sendVoiceNote} />
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

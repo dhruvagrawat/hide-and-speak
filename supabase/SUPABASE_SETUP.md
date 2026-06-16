@@ -9,7 +9,7 @@ done by hand, once, per Supabase project. Project ref currently in use:
 
 SQL Editor → run, in order: `schema.sql`, `patch_001_fix_rls.sql`,
 `patch_002_fix_recursion.sql`, `patch_003_fix_messages.sql`,
-`patch_004_avatars.sql`, `patch_005_add_phone.sql`. See `supabase/README.md` for what each one
+`patch_004_avatars.sql`, `patch_005_add_phone.sql`, `patch_006_chat_storage.sql`. See `supabase/README.md` for what each one
 actually does.
 
 ## 2. Storage buckets

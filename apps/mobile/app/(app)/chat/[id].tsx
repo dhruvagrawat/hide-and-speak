@@ -15,6 +15,7 @@ import { useIsOnline } from '@/lib/presence';
 import { useActiveConversationRef } from '@/lib/activeConversation';
 import { sendImageP2P } from '@/lib/p2p';
 import { Avatar } from '@/components/Avatar';
+import { VoiceRecorderButton, VoiceNoteBubble } from '@/components/VoiceNote';
 
 export default function ChatScreen() {
   const { id: conversationId, username } = useLocalSearchParams<{ id: string; username: string }>();
@@ -256,9 +257,13 @@ export default function ChatScreen() {
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      // chat-images is a private bucket — a signed URL (not getPublicUrl,
+      // which only works on public buckets) is what actually lets the
+      // image load. See supabase/patch_006_chat_storage.sql.
+      const { data: urlData, error: signError } = await supabase.storage
         .from('chat-images')
-        .getPublicUrl(uploadData.path);
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+      if (signError || !urlData) throw signError ?? new Error('Could not sign image URL');
 
       const { data, error: msgError } = await supabase
         .from('messages')
@@ -267,7 +272,7 @@ export default function ChatScreen() {
           sender_id: currentUserId,
           content: null,
           message_type: 'image',
-          image_url: urlData.publicUrl,
+          image_url: urlData.signedUrl,
           image_hidden: pending.hidden,
           image_filter: pending.filter ?? null,
         })
@@ -280,6 +285,68 @@ export default function ChatScreen() {
       if (data) {
         setMessages((prev) => [data as Message, ...prev]);
       }
+    } catch (err: unknown) {
+      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // ── Send voice note ────────────────────────
+  const sendVoiceNote = async (uri: string) => {
+    if (!currentUserId) return;
+    setSending(true);
+
+    if (IS_DEMO) {
+      // Plays straight from the local recording — no upload.
+      setMessages((prev) => [
+        {
+          id: `demo_voice_${Date.now()}`,
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          content: null,
+          message_type: 'voice_note',
+          image_url: null,
+          image_hidden: false,
+          image_filter: null,
+          voice_note_url: uri,
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setSending(false);
+      return;
+    }
+
+    try {
+      const fileName = `${conversationId}/${Date.now()}.m4a`;
+      const formData = new FormData();
+      formData.append('file', { uri, name: fileName, type: 'audio/m4a' } as unknown as Blob);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('voice-notes')
+        .upload(fileName, formData, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData, error: signError } = await supabase.storage
+        .from('voice-notes')
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+      if (signError || !urlData) throw signError ?? new Error('Could not sign voice note URL');
+
+      const { data, error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          content: null,
+          message_type: 'voice_note',
+          voice_note_url: urlData.signedUrl,
+        })
+        .select()
+        .single();
+      if (msgError) throw msgError;
+
+      if (data) setMessages((prev) => [data as Message, ...prev]);
     } catch (err: unknown) {
       Alert.alert('Upload failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -322,11 +389,8 @@ export default function ChatScreen() {
             />
           )}
 
-          {item.message_type === 'voice_note' && (
-            <View style={styles.voiceNote}>
-              <Text style={styles.voiceNoteIcon}>🎙</Text>
-              <Text style={styles.voiceNoteText}>Voice note</Text>
-            </View>
+          {item.message_type === 'voice_note' && item.voice_note_url && (
+            <VoiceNoteBubble uri={item.voice_note_url} isMine={isMine} />
           )}
 
           <View style={styles.timestampRow}>
@@ -364,6 +428,7 @@ export default function ChatScreen() {
 
       <View style={styles.inputBar}>
         <ImagePickerButton onImageReady={sendImage} recipientOnline={recipientOnline} />
+        <VoiceRecorderButton onRecorded={sendVoiceNote} />
 
         <TextInput
           style={styles.input}
@@ -444,14 +509,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
 
-  voiceNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  voiceNoteIcon: { fontSize: 20 },
-  voiceNoteText: { color: Colors.text, fontSize: 14 },
 
   timestampRow: {
     flexDirection: 'row',
