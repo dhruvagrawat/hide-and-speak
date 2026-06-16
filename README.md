@@ -55,6 +55,7 @@ supabase/patch_001_fix_rls.sql
 supabase/patch_002_fix_recursion.sql
 supabase/patch_003_fix_messages.sql
 supabase/patch_004_avatars.sql
+supabase/patch_005_add_phone.sql
 ```
 
 See `supabase/SUPABASE_SETUP.md` for everything else (storage buckets,
@@ -170,13 +171,13 @@ this file stays high-level.
 | Peer-to-peer image send (no server storage) | 🟡 Stubbed | UI + online-gating done; transport needs `react-native-webrtc` + a dev-client build — see `apps/mobile/lib/p2p.ts` |
 | Real push notifications | 🟡 Stubbed | Needs a dev-client build + a Supabase Edge Function — see `apps/mobile/README.md` |
 | Google OAuth / phone OTP on web | ⬜ Not started | Each needs separate web redirect/provider config |
-| Profile pictures | ⬜ Not started | |
+| Profile pictures | ✅ Built | `avatars` storage bucket + `Avatar` component on both apps |
+| Contact finder by exact email/phone | ✅ Built | No contact upload, no directory browsing — exact match only, by design |
 | Status / Stories (Instagram-style) | ⬜ Not started | |
 | Stickers, GIFs | ⬜ Not started | |
 | Voice notes / voice messages | ⬜ Not started | `voice_note` message type and storage bucket already exist in the schema, unused so far |
 | Global search / in-chat search | ⬜ Not started | |
 | Per-chat wallpapers / customization | ⬜ Not started | |
-| Contact-based "find people" (not open lookup) | ⬜ Not started | Currently anyone can start a chat with anyone by email — a contacts-based model needs its own design pass |
 | Voice / video calling | ⬜ Not started | Needs WebRTC + a TURN server + a dev-client build, same family as P2P |
 | Groups | ⬜ Not started | `conversation_members` already supports >2 members; nothing else does yet |
 

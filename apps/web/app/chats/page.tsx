@@ -53,7 +53,9 @@ export default function ChatsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(IS_DEMO ? DEMO_USER_ID : null);
   const [ownProfile, setOwnProfile] = useState<Profile | null>(IS_DEMO ? DEMO_PROFILE : null);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [searchMode, setSearchMode] = useState<'email' | 'phone'>('email');
   const [searchEmail, setSearchEmail] = useState('');
+  const [searchPhone, setSearchPhone] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -148,19 +150,23 @@ export default function ChatsPage() {
       setShowNewChat(false);
       return;
     }
-    if (!searchEmail.trim() || !currentUserId) return;
+    const query = searchMode === 'email' ? searchEmail.trim().toLowerCase() : searchPhone.trim();
+    if (!query || !currentUserId) return;
     setSearchLoading(true);
     setSearchError(null);
     const supabase = createClient();
 
+    // Exact match only, by design — no contact upload, no browsing the
+    // user directory. You can only start a chat with someone whose exact
+    // email or phone number you already have.
     const { data: profile, error: profileErr } = await supabase
       .from('profiles')
       .select('id, username, email')
-      .eq('email', searchEmail.trim().toLowerCase())
+      .eq(searchMode, query)
       .single();
 
     if (profileErr || !profile) {
-      setSearchError('No account found with that email address.');
+      setSearchError(`No account found with that ${searchMode === 'email' ? 'email address' : 'phone number'}.`);
       setSearchLoading(false);
       return;
     }
@@ -178,6 +184,7 @@ export default function ChatsPage() {
 
     setShowNewChat(false);
     setSearchEmail('');
+    setSearchPhone('');
     await fetchConversations(currentUserId);
     // No ?username= in the URL — the chat page looks up who you're talking
     // to itself, so the address bar / browser history never gives that away.
@@ -248,15 +255,48 @@ export default function ChatsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-1.5 text-lg font-semibold text-[#F5F5F5]">New conversation</h3>
-            <p className="mb-4 text-sm text-[#9E9E9E]">Enter the email of the person you want to chat with</p>
-            <input
-              autoFocus
-              type="email"
-              value={searchEmail}
-              onChange={(e) => setSearchEmail(e.target.value)}
-              placeholder="friend@example.com"
-              className="mb-4 w-full rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] px-4 py-3 text-[#F5F5F5] placeholder-[#555555] outline-none focus:border-[#7C5CBF]"
-            />
+            <p className="mb-4 text-sm text-[#9E9E9E]">
+              Exact email or phone only — no contacts are uploaded, you can&apos;t browse other users.
+            </p>
+
+            <div className="mb-3.5 flex gap-1 rounded-xl bg-[#1A1A1A] p-1">
+              <button
+                onClick={() => setSearchMode('email')}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                  searchMode === 'email' ? 'bg-[#7C5CBF] text-white' : 'text-[#9E9E9E]'
+                }`}
+              >
+                Email
+              </button>
+              <button
+                onClick={() => setSearchMode('phone')}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                  searchMode === 'phone' ? 'bg-[#7C5CBF] text-white' : 'text-[#9E9E9E]'
+                }`}
+              >
+                Phone
+              </button>
+            </div>
+
+            {searchMode === 'email' ? (
+              <input
+                autoFocus
+                type="email"
+                value={searchEmail}
+                onChange={(e) => setSearchEmail(e.target.value)}
+                placeholder="friend@example.com"
+                className="mb-4 w-full rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] px-4 py-3 text-[#F5F5F5] placeholder-[#555555] outline-none focus:border-[#7C5CBF]"
+              />
+            ) : (
+              <input
+                autoFocus
+                type="tel"
+                value={searchPhone}
+                onChange={(e) => setSearchPhone(e.target.value)}
+                placeholder="+919876543210"
+                className="mb-4 w-full rounded-xl border border-[#2A2A2A] bg-[#1A1A1A] px-4 py-3 text-[#F5F5F5] placeholder-[#555555] outline-none focus:border-[#7C5CBF]"
+              />
+            )}
             {searchError && <p className="mb-4 text-sm text-[#F44336]">{searchError}</p>}
             <button
               onClick={startNewChat}

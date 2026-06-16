@@ -52,7 +52,9 @@ export default function ChatList() {
 
   // New chat modal
   const [showNewChat, setShowNewChat] = useState(false);
+  const [searchMode, setSearchMode] = useState<'email' | 'phone'>('email');
   const [searchEmail, setSearchEmail] = useState('');
+  const [searchPhone, setSearchPhone] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
 
   const fetchConversations = useCallback(async (userId: string) => {
@@ -164,19 +166,25 @@ export default function ChatList() {
       setShowNewChat(false);
       return;
     }
-    if (!searchEmail.trim()) return;
+    const query = searchMode === 'email' ? searchEmail.trim().toLowerCase() : searchPhone.trim();
+    if (!query) return;
     setSearchLoading(true);
 
     try {
-      // 1. Look up the target user by email
+      // Exact match only, by design — no contact upload, no browsing the
+      // user directory. You can only start a chat with someone whose exact
+      // email or phone number you already have.
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('id, username, email')
-        .eq('email', searchEmail.trim().toLowerCase())
+        .eq(searchMode, query)
         .single();
 
       if (profileErr || !profile) {
-        Alert.alert('User not found', 'No account found with that email address.');
+        Alert.alert(
+          'User not found',
+          `No account found with that ${searchMode === 'email' ? 'email address' : 'phone number'}.`,
+        );
         return;
       }
 
@@ -192,6 +200,7 @@ export default function ChatList() {
 
       setShowNewChat(false);
       setSearchEmail('');
+      setSearchPhone('');
       if (currentUserId) fetchConversations(currentUserId);
       router.push({
         pathname: '/(app)/chat/[id]',
@@ -275,17 +284,48 @@ export default function ChatList() {
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
           <Text style={styles.modalTitle}>New conversation</Text>
-          <Text style={styles.modalSubtitle}>Enter the email of the person you want to chat with</Text>
-          <TextInput
-            style={styles.modalInput}
-            placeholder="friend@example.com"
-            placeholderTextColor={Colors.textMuted}
-            value={searchEmail}
-            onChangeText={setSearchEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoFocus
-          />
+          <Text style={styles.modalSubtitle}>
+            Exact email or phone only — no contacts are uploaded, you can&apos;t browse other users.
+          </Text>
+
+          <View style={styles.modalTabRow}>
+            <TouchableOpacity
+              style={[styles.modalTab, searchMode === 'email' && styles.modalTabActive]}
+              onPress={() => setSearchMode('email')}
+            >
+              <Text style={[styles.modalTabText, searchMode === 'email' && styles.modalTabTextActive]}>Email</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalTab, searchMode === 'phone' && styles.modalTabActive]}
+              onPress={() => setSearchMode('phone')}
+            >
+              <Text style={[styles.modalTabText, searchMode === 'phone' && styles.modalTabTextActive]}>Phone</Text>
+            </TouchableOpacity>
+          </View>
+
+          {searchMode === 'email' ? (
+            <TextInput
+              style={styles.modalInput}
+              placeholder="friend@example.com"
+              placeholderTextColor={Colors.textMuted}
+              value={searchEmail}
+              onChangeText={setSearchEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoFocus
+            />
+          ) : (
+            <TextInput
+              style={styles.modalInput}
+              placeholder="+919876543210"
+              placeholderTextColor={Colors.textMuted}
+              value={searchPhone}
+              onChangeText={setSearchPhone}
+              keyboardType="phone-pad"
+              autoFocus
+            />
+          )}
+
           <TouchableOpacity
             style={[styles.modalBtn, searchLoading && styles.buttonDisabled]}
             onPress={startNewChat}
@@ -387,6 +427,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   modalSubtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 16 },
+  modalTabRow: {
+    flexDirection: 'row', marginBottom: 14,
+    backgroundColor: Colors.inputBg, borderRadius: 12, padding: 4,
+  },
+  modalTab: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
+  modalTabActive: { backgroundColor: Colors.primary },
+  modalTabText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  modalTabTextActive: { color: '#fff' },
   modalInput: {
     backgroundColor: Colors.inputBg,
     borderWidth: 1,

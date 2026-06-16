@@ -27,7 +27,10 @@ nothing errors, it just looks like realtime is "broken".
 profiles
   Extends auth.users (1:1, same id). Auto-created by the
   handle_new_user() trigger on signup — username defaults to the part of
-  the email before the @.
+  the email before the @. phone is copied from auth.users.phone when
+  someone signs up via phone OTP (patch_005_add_phone.sql); it's how the
+  "new chat by phone" lookup works — same exact-match pattern as email,
+  no contact upload.
 
 conversations
   Just an id + timestamps. The actual "who's in it" lives in
