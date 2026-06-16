@@ -18,7 +18,7 @@ WebBrowser.maybeCompleteAuthSession();
  *  2. Add authorised redirect URI: https://<project-ref>.supabase.co/auth/v1/callback
  */
 export async function signInWithGoogle(): Promise<void> {
-  const redirectUri = makeRedirectUri({ scheme: 'hideaspeak', path: 'auth/callback' });
+  const redirectUri = makeRedirectUri({ scheme: 'hidespeak', path: 'auth/callback' });
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -53,9 +53,8 @@ export async function signInWithGoogle(): Promise<void> {
  * Setup required (one-time, in Supabase dashboard):
  *  1. Authentication → Providers → Phone → Enable
  *  2. SMS Provider → Vonage
- *  3. Enter Vonage API Key: aUYNK4op14ur0cVx
- *  4. Enter Vonage API Secret (from your Vonage dashboard)
- *  5. Set "From" to your Vonage virtual number
+ *  3. Enter your Vonage API Key + API Secret (see root .env.local — never commit real keys here)
+ *  4. Set "From" to your Vonage virtual number
  */
 export async function sendPhoneOtp(phone: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOtp({ phone });

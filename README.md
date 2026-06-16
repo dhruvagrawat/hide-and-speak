@@ -1,4 +1,4 @@
-# Hidea & Speak
+# Hide & Speak
 
 A privacy-first Android chat app built with Expo + React Native, fully self-hostable via Supabase.
 
@@ -92,9 +92,13 @@ npm start                # scan QR with Expo Go
 
 ---
 
-## Required assets
+## App icon & splash
 
-Before building a release APK you need to provide the following image files in the `assets/` folder:
+`assets/icon.png`, `assets/adaptive-icon.png`, and `assets/splash.png` are
+already in place — a small pixel-art speech-bubble mark in the app's brand
+colors. The web app uses the same mark (`apps/web/app/icon.png` and
+`favicon.ico`). Replace these any time with your own art; the specs below
+still apply if you do.
 
 ### `assets/icon.png`
 - **Size:** 1024 × 1024 px
@@ -126,29 +130,52 @@ Before building a release APK you need to provide the following image files in t
 
 ## Project structure
 
+This is an npm-workspaces monorepo:
+
 ```
-app/
-├── _layout.tsx          # Root layout — auth guard, redirect logic
-├── index.tsx            # Loading splash (brief)
-├── (auth)/
-│   ├── login.tsx        # Email login screen
-│   └── register.tsx     # Registration screen
-└── (app)/
-    ├── index.tsx        # Chat list + new conversation flow
-    └── chat/[id].tsx    # Real-time chat screen
-components/
-└── ImageMessage.tsx     # Hidden/reveal image feature (send + receive)
-lib/
-├── supabase.ts          # Supabase client (AsyncStorage session)
-└── types.ts             # TypeScript interfaces
-constants/
-└── colors.ts            # App color palette
+apps/
+├── mobile/      Expo Router app — the main product. See apps/mobile/README.md
+│                for how demo mode, presence, app lock, the new-message
+│                banner, and the P2P stub all work.
+└── web/         Next.js app — same Supabase backend, same auth, same
+                 conversations. See apps/web/README.md.
 supabase/
-├── schema.sql           # Initial database schema
-├── patch_001_fix_rls.sql
-├── patch_002_fix_recursion.sql
-└── patch_003_fix_messages.sql
+├── schema.sql, patch_*.sql     Run once in the SQL Editor, in order
+├── README.md                    What each table/policy/RPC actually does
+└── SUPABASE_SETUP.md             Dashboard config: storage buckets, email,
+                                    Google OAuth, Vonage phone OTP
 ```
+
+Each app folder's README is the source of truth for that app's internals;
+this file stays high-level.
+
+---
+
+## What's built vs. stubbed vs. not started
+
+| Feature | Status | Notes |
+|---|---|---|
+| Email auth, chat list, realtime text messages | ✅ Built | Mobile + web |
+| Hidden images (blur/pixelate/noir, tap to reveal) | ✅ Built | Mobile + web |
+| Demo mode (no Supabase needed) | ✅ Built | Mobile + web |
+| Online/offline presence | ✅ Built | Shared between mobile + web via one Realtime Presence channel |
+| Mobile app lock (biometric/passcode) | ✅ Built | Mobile only — see `apps/mobile/lib/applock.tsx` |
+| In-app "new message from X" banner | ✅ Built | Mobile only, foreground-only — see "real push" below |
+| Peer-to-peer image send (no server storage) | 🟡 Stubbed | UI + online-gating done; transport needs `react-native-webrtc` + a dev-client build — see `apps/mobile/lib/p2p.ts` |
+| Real push notifications | 🟡 Stubbed | Needs a dev-client build + a Supabase Edge Function — see `apps/mobile/README.md` |
+| Google OAuth / phone OTP on web | ⬜ Not started | Each needs separate web redirect/provider config |
+| Profile pictures | ⬜ Not started | |
+| Status / Stories (Instagram-style) | ⬜ Not started | |
+| Stickers, GIFs | ⬜ Not started | |
+| Voice notes / voice messages | ⬜ Not started | `voice_note` message type and storage bucket already exist in the schema, unused so far |
+| Global search / in-chat search | ⬜ Not started | |
+| Per-chat wallpapers / customization | ⬜ Not started | |
+| Contact-based "find people" (not open lookup) | ⬜ Not started | Currently anyone can start a chat with anyone by email — a contacts-based model needs its own design pass |
+| Voice / video calling | ⬜ Not started | Needs WebRTC + a TURN server + a dev-client build, same family as P2P |
+| Groups | ⬜ Not started | `conversation_members` already supports >2 members; nothing else does yet |
+
+This list is intentionally honest about what's real vs. placeholder —
+check a given app's README before assuming a feature works end-to-end.
 
 ---
 
@@ -164,7 +191,11 @@ messages          — chat messages
     image_filter  → 'blur' | 'pixelate' | 'noir'
 ```
 
-Row Level Security is enabled on every table. Users can only read and write data they are members of.
+Row Level Security is enabled on every table — users can only read and
+write data they're members of. See `supabase/README.md` for what each
+table/policy/RPC actually does, and `supabase/SUPABASE_SETUP.md` for the
+dashboard configuration (storage buckets, email, Google OAuth, Vonage)
+that isn't covered by SQL.
 
 ---
 
@@ -173,8 +204,8 @@ Row Level Security is enabled on every table. Users can only read and write data
 Pull requests are welcome. To run the project locally:
 
 ```bash
-git clone https://github.com/your-username/hidea-speak
-cd hidea-speak
+git clone https://github.com/your-username/hide-speak
+cd hide-speak
 npm install --legacy-peer-deps
 cp .env.example .env.local   # add your Supabase credentials
 npm start

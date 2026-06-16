@@ -10,34 +10,76 @@ import { Colors } from '@/constants/colors';
 import { Message } from '@/lib/types';
 import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
 import type { PendingImage } from '@/lib/types';
+import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/demo';
+import { useIsOnline } from '@/lib/presence';
+import { useActiveConversationRef } from '@/lib/activeConversation';
+import { sendImageP2P } from '@/lib/p2p';
 
 export default function ChatScreen() {
   const { id: conversationId, username } = useLocalSearchParams<{ id: string; username: string }>();
   const navigation = useNavigation();
+  const activeConversationRef = useActiveConversationRef();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [recipientId, setRecipientId] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
 
   const flatRef = useRef<FlatList>(null);
+  const recipientOnline = useIsOnline(recipientId);
+
+  // Mark this conversation as "currently open" so the global new-message
+  // banner stays quiet about it while you're already looking at it.
+  useEffect(() => {
+    activeConversationRef.current = conversationId;
+    return () => {
+      if (activeConversationRef.current === conversationId) activeConversationRef.current = null;
+    };
+  }, [conversationId, activeConversationRef]);
 
   useEffect(() => {
-    navigation.setOptions({ title: username ?? 'Chat' });
-  }, [navigation, username]);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setCurrentUserId(user.id);
-        currentUserIdRef.current = user.id;
-      }
+    navigation.setOptions({
+      title: username ?? 'Chat',
+      headerTitle: () => (
+        <View>
+          <Text style={styles.headerTitle}>{username ?? 'Chat'}</Text>
+          <Text style={styles.headerSubtitle}>{recipientOnline ? '🟢 Online' : 'Offline'}</Text>
+        </View>
+      ),
     });
-  }, []);
+  }, [navigation, username, recipientOnline]);
+
+  useEffect(() => {
+    if (IS_DEMO) {
+      setCurrentUserId(DEMO_USER_ID);
+      currentUserIdRef.current = DEMO_USER_ID;
+      setRecipientId(DEMO_CONVERSATIONS.find((c) => c.id === conversationId)?.other_user?.id ?? null);
+      return;
+    }
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      setCurrentUserId(user.id);
+      currentUserIdRef.current = user.id;
+
+      const { data } = await supabase
+        .from('conversation_members')
+        .select('user_id')
+        .eq('conversation_id', conversationId)
+        .neq('user_id', user.id)
+        .single();
+      if (data) setRecipientId(data.user_id);
+    });
+  }, [conversationId]);
 
   const fetchMessages = useCallback(async () => {
+    if (IS_DEMO) {
+      setMessages(DEMO_MESSAGES[conversationId] ?? []);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('messages')
       .select('*, sender:profiles!sender_id(id, username, email, avatar_url)')
@@ -54,6 +96,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     fetchMessages();
+    if (IS_DEMO) return; // no realtime channel needed against canned data
 
     // Realtime: listen for new messages from the other person.
     // Your own messages are added optimistically in sendText/sendImage,
@@ -119,6 +162,12 @@ export default function ChatScreen() {
     };
     setMessages((prev) => [optimistic, ...prev]);
 
+    if (IS_DEMO) {
+      // No backend round trip — the optimistic bubble above is the final state.
+      setSending(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .insert({
@@ -149,6 +198,45 @@ export default function ChatScreen() {
   const sendImage = async (pending: PendingImage) => {
     if (!currentUserId) return;
     setSending(true);
+
+    // "Private" peer-to-peer mode: only actually skips the server if the
+    // recipient is online right now to receive it directly. Otherwise we
+    // silently fall back to the normal server-stored send below.
+    if (pending.p2p && recipientId && recipientOnline) {
+      const { delivered } = await sendImageP2P({ conversationId, recipientId, uri: pending.uri });
+      if (delivered) {
+        setSending(false);
+        return;
+      }
+      // Stubbed for now (needs a dev-client build — see lib/p2p.ts) — falls
+      // through to the normal upload path below instead of failing silently.
+    } else if (pending.p2p && (!recipientId || !recipientOnline)) {
+      Alert.alert(
+        `${username ?? 'They'} is offline`,
+        'Peer-to-peer needs them online right now, so this was sent as a regular image instead.',
+      );
+    }
+
+    if (IS_DEMO) {
+      // Show the picked image straight from its local URI — no upload.
+      setMessages((prev) => [
+        {
+          id: `demo_img_${Date.now()}`,
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          content: null,
+          message_type: 'image',
+          image_url: pending.uri,
+          image_hidden: pending.hidden,
+          image_filter: pending.filter ?? null,
+          voice_note_url: null,
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setSending(false);
+      return;
+    }
 
     try {
       const ext = pending.uri.split('.').pop() ?? 'jpg';
@@ -276,7 +364,7 @@ export default function ChatScreen() {
       />
 
       <View style={styles.inputBar}>
-        <ImagePickerButton onImageReady={sendImage} />
+        <ImagePickerButton onImageReady={sendImage} recipientOnline={recipientOnline} />
 
         <TextInput
           style={styles.input}
@@ -303,6 +391,9 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
+  headerSubtitle: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
+
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
   listContent: { padding: 16, paddingBottom: 8 },

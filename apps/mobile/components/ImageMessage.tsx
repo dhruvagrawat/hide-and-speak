@@ -31,10 +31,16 @@ import {
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
-import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Colors } from '@/constants/colors';
 import { ImageFilter, PendingImage } from '@/lib/types';
+
+// expo-media-library is loaded lazily (only when "Save to gallery" is
+// actually used) and wrapped in try/catch below. On some Expo Go builds
+// its native module isn't registered, which would otherwise crash this
+// whole file at import time and take down every screen that uses
+// ImageMessage. A custom dev client (`expo run:android` / EAS build)
+// always has it; Expo Go may not depending on the SDK version.
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const IMAGE_W = SCREEN_W * 0.62;
@@ -46,7 +52,7 @@ const IMAGE_H = IMAGE_W * 0.75;
 function FilterOverlay({ filter }: { filter: ImageFilter | null }) {
   if (filter === 'noir') {
     return (
-      <View style={[StyleSheet.absoluteFillObject, styles.noirOverlay]}>
+      <View style={[StyleSheet.absoluteFill, styles.noirOverlay]}>
         <View style={styles.noirTint} />
       </View>
     );
@@ -54,7 +60,7 @@ function FilterOverlay({ filter }: { filter: ImageFilter | null }) {
   if (filter === 'pixelate') {
     // Simulate pixelation with a grid of semi-transparent squares
     return (
-      <View style={[StyleSheet.absoluteFillObject, styles.pixelateOverlay]}>
+      <View style={[StyleSheet.absoluteFill, styles.pixelateOverlay]}>
         {Array.from({ length: 6 }).map((_, row) => (
           <View key={row} style={styles.pixelRow}>
             {Array.from({ length: 8 }).map((_, col) => (
@@ -74,7 +80,7 @@ function FilterOverlay({ filter }: { filter: ImageFilter | null }) {
   // Default: blur (also used when filter === 'blur')
   return (
     <BlurView
-      style={StyleSheet.absoluteFillObject}
+      style={StyleSheet.absoluteFill}
       intensity={90}
       tint="dark"
     />
@@ -126,20 +132,24 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
   };
 
   const saveToGallery = async () => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your gallery to save images.');
-      return;
-    }
     setSaving(true);
     try {
+      const MediaLibrary = await import('expo-media-library');
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your gallery to save images.');
+        return;
+      }
       // Download to a temp file first (imageUrl is a remote URL)
       const localUri = FileSystem.cacheDirectory + `img_${Date.now()}.jpg`;
       const { uri } = await FileSystem.downloadAsync(imageUrl, localUri);
       await MediaLibrary.saveToLibraryAsync(uri);
       Alert.alert('Saved!', 'Image saved to your gallery.');
     } catch {
-      Alert.alert('Error', 'Could not save image. Please try again.');
+      Alert.alert(
+        'Save unavailable',
+        'Saving to gallery needs a custom dev build (not available in Expo Go on this SDK).',
+      );
     } finally {
       setSaving(false);
     }
@@ -215,12 +225,16 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
 // ─────────────────────────────────────────────
 interface ImagePickerButtonProps {
   onImageReady: (pending: PendingImage) => void;
+  // Whether the person you're chatting with is online right now —
+  // peer-to-peer send is only actually possible while that's true.
+  recipientOnline?: boolean;
 }
 
-export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
+export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePickerButtonProps) {
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
   const [filter, setFilter] = useState<ImageFilter>('blur');
+  const [p2p, setP2p] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const openPicker = async () => {
@@ -237,6 +251,7 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
       setPickedUri(result.assets[0].uri);
       setHidden(false);
       setFilter('blur');
+      setP2p(false);
       setSheetVisible(true);
     }
   };
@@ -247,6 +262,7 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
       uri: pickedUri,
       hidden,
       filter: hidden ? filter : null,
+      p2p,
     });
     setSheetVisible(false);
     setPickedUri(null);
@@ -327,6 +343,25 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
             </>
           )}
 
+          {/* Peer-to-peer toggle */}
+          <TouchableOpacity
+            style={styles.p2pRow}
+            onPress={() => setP2p((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.p2pCheckbox, p2p && styles.p2pCheckboxActive]}>
+              {p2p && <Text style={styles.p2pCheckmark}>✓</Text>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.p2pLabel}>📡 Send peer-to-peer</Text>
+              <Text style={styles.p2pHint}>
+                {recipientOnline
+                  ? 'They’re online — this can skip the server entirely.'
+                  : 'They’re offline right now — this will send as a normal image instead.'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
             <Text style={styles.sendBtnText}>
               {hidden ? '🔒 Send hidden' : '📤 Send image'}
@@ -380,7 +415,7 @@ const styles = StyleSheet.create({
   filter_noir: { backgroundColor: 'rgba(30, 30, 30, 0.9)' },
   filterTagText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
   savingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -389,7 +424,7 @@ const styles = StyleSheet.create({
   // Noir overlay
   noirOverlay: { overflow: 'hidden' },
   noirTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
 
@@ -508,6 +543,31 @@ const styles = StyleSheet.create({
   filterBtnIcon: { fontSize: 20 },
   filterBtnLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
   filterBtnLabelActive: { color: '#fff' },
+  p2pRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.inputBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    marginBottom: 20,
+  },
+  p2pCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  p2pCheckboxActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  p2pCheckmark: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  p2pLabel: { color: Colors.text, fontSize: 14, fontWeight: '600' },
+  p2pHint: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   sendBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,

@@ -52,14 +52,14 @@ export default function Register() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <LinearGradient colors={['#0D0D0D', '#1a0a2e', '#0D0D0D']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#0D0D0D', '#1a0a2e', '#0D0D0D']} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Logo */}
         <View style={styles.logoArea}>
           <View style={styles.logoCircle}>
             <Text style={styles.logoGlyph}>✦</Text>
           </View>
-          <Text style={styles.appName}>Hidea & Speak</Text>
+          <Text style={styles.appName}>Hide & Speak</Text>
           <Text style={styles.tagline}>Create your account</Text>
         </View>
 

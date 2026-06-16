@@ -7,6 +7,42 @@ import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { Conversation, Profile } from '@/lib/types';
+import { IS_DEMO, DEMO_USER_ID, DEMO_CONVERSATIONS } from '@/lib/demo';
+import { useIsOnline } from '@/lib/presence';
+
+function ConversationRow({ item, formatTime }: { item: Conversation; formatTime: (iso: string) => string }) {
+  const online = useIsOnline(item.other_user?.id);
+
+  return (
+    <TouchableOpacity
+      style={styles.convItem}
+      onPress={() =>
+        router.push({
+          pathname: '/(app)/chat/[id]',
+          params: { id: item.id, username: item.other_user?.username ?? 'Unknown' },
+        })
+      }
+      activeOpacity={0.7}
+    >
+      {/* Avatar */}
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {(item.other_user?.username ?? '?')[0].toUpperCase()}
+        </Text>
+        {online && <View style={styles.onlineDot} />}
+      </View>
+      {/* Info */}
+      <View style={styles.convInfo}>
+        <Text style={styles.convName}>{item.other_user?.username ?? 'Unknown'}</Text>
+        <Text style={styles.convLast} numberOfLines={1}>{item.last_message}</Text>
+      </View>
+      {/* Time */}
+      <Text style={styles.convTime}>
+        {item.last_message_at ? formatTime(item.last_message_at) : ''}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function ChatList() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -93,6 +129,12 @@ export default function ChatList() {
   }, []);
 
   const init = useCallback(async () => {
+    if (IS_DEMO) {
+      setCurrentUserId(DEMO_USER_ID);
+      setConversations(DEMO_CONVERSATIONS);
+      setLoading(false);
+      return;
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -115,6 +157,11 @@ export default function ChatList() {
   };
 
   const startNewChat = async () => {
+    if (IS_DEMO) {
+      Alert.alert('Demo mode', 'Connect Supabase and turn off demo mode to start real conversations.');
+      setShowNewChat(false);
+      return;
+    }
     if (!searchEmail.trim()) return;
     setSearchLoading(true);
 
@@ -154,6 +201,10 @@ export default function ChatList() {
   };
 
   const handleSignOut = () => {
+    if (IS_DEMO) {
+      Alert.alert('Demo mode', 'Sign-out is disabled in demo mode — set EXPO_PUBLIC_DEMO_MODE=false once Supabase is connected.');
+      return;
+    }
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -187,7 +238,7 @@ export default function ChatList() {
       {/* Header actions */}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
-          <Text style={styles.signOutText}>Sign out</Text>
+          <Text style={styles.signOutText}>{IS_DEMO ? '🧪 Demo' : 'Sign out'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.newChatBtn} onPress={() => setShowNewChat(true)}>
           <Text style={styles.newChatIcon}>✎</Text>
@@ -206,34 +257,7 @@ export default function ChatList() {
           data={conversations}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.convItem}
-              onPress={() =>
-                router.push({
-                  pathname: '/(app)/chat/[id]',
-                  params: { id: item.id, username: item.other_user?.username ?? 'Unknown' },
-                })
-              }
-              activeOpacity={0.7}
-            >
-              {/* Avatar */}
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {(item.other_user?.username ?? '?')[0].toUpperCase()}
-                </Text>
-              </View>
-              {/* Info */}
-              <View style={styles.convInfo}>
-                <Text style={styles.convName}>{item.other_user?.username ?? 'Unknown'}</Text>
-                <Text style={styles.convLast} numberOfLines={1}>{item.last_message}</Text>
-              </View>
-              {/* Time */}
-              <Text style={styles.convTime}>
-                {item.last_message_at ? formatTime(item.last_message_at) : ''}
-              </Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => <ConversationRow item={item} formatTime={formatTime} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
@@ -315,6 +339,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.success,
+    borderWidth: 2,
+    borderColor: Colors.background,
   },
   avatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   convInfo: { flex: 1 },

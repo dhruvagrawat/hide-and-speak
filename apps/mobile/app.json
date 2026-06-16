@@ -1,31 +1,46 @@
 {
   "expo": {
-    "name": "Hidea & Speak",
-    "slug": "hidea-speak",
+    "name": "Hide & Speak",
+    "slug": "hide-speak",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "hideaspeak",
+    "scheme": "hidespeak",
     "userInterfaceStyle": "dark",
-    "platforms": ["android"],
+    "icon": "./assets/icon.png",
+    "platforms": [
+      "android"
+    ],
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D0D0D"
       },
-      "package": "com.hideaspeak.app"
+      "package": "com.hidespeak.app"
     },
     "plugins": [
       "expo-router",
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Hidea & Speak to access your photos."
+          "photosPermission": "Allow Hide & Speak to access your photos."
         }
       ],
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow Hidea & Speak to access your photos.",
-          "savePhotosPermission": "Allow Hidea & Speak to save photos to your gallery."
+          "photosPermission": "Allow Hide & Speak to access your photos.",
+          "savePhotosPermission": "Allow Hide & Speak to save photos to your gallery."
+        }
+      ],
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0D0D0D"
         }
       ]
     ],

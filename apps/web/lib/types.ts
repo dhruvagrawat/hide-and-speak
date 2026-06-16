@@ -1,3 +1,5 @@
+// Mirrors apps/mobile/lib/types.ts — same Supabase schema, same shapes.
+
 export type ImageFilter = 'blur' | 'pixelate' | 'noir';
 
 export type MessageType = 'text' | 'image' | 'voice_note';
@@ -17,7 +19,6 @@ export interface Conversation {
   other_user?: Profile;
   last_message?: string;
   last_message_at?: string;
-  unread_count?: number;
 }
 
 export interface Message {
@@ -34,13 +35,9 @@ export interface Message {
   sender?: Profile;
 }
 
-// Shape of what ImageMessage picker returns before upload
 export interface PendingImage {
-  uri: string;
+  file: File;
+  previewUrl: string;
   hidden: boolean;
   filter: ImageFilter | null;
-  // "Private" peer-to-peer send — see lib/p2p.ts. Only actually goes P2P if
-  // the recipient is online at send time; otherwise falls back to the
-  // normal server-stored upload automatically.
-  p2p?: boolean;
 }

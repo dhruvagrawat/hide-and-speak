@@ -2,15 +2,23 @@ import { useEffect, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { IS_DEMO } from '@/lib/demo';
+import { AppLockProvider } from '@/lib/applock';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/colors';
 
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  // Demo mode skips the Supabase session check entirely and goes
+  // straight into the app shell with canned data — see lib/demo.ts.
+  const [session, setSession] = useState<Session | null | undefined>(
+    IS_DEMO ? null : undefined,
+  );
 
   useEffect(() => {
+    if (IS_DEMO) return;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -25,6 +33,10 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    if (IS_DEMO) {
+      router.replace('/(app)');
+      return;
+    }
     if (session === undefined) return; // still loading
     if (session) {
       router.replace('/(app)');
@@ -41,14 +53,22 @@ export default function RootLayout() {
     );
   }
 
+  const isAuthenticated = IS_DEMO || !!session;
+
+  const stack = (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(app)" />
+      <Stack.Screen name="index" />
+    </Stack>
+  );
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="index" />
-      </Stack>
+      {/* Only lock once there's actually something private to protect —
+          no point gating the login/register screens behind biometrics. */}
+      {isAuthenticated ? <AppLockProvider>{stack}</AppLockProvider> : stack}
     </GestureHandlerRootView>
   );
 }
