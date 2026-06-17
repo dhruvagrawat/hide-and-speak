@@ -14,7 +14,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "REMOVED_SEE_EAS_ENV",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REMOVED_SEE_EAS_ENV",
-        "EXPO_PUBLIC_DEMO_MODE": "false"
+        "EXPO_PUBLIC_DEMO_MODE": "true"
       },
       "android": {
         "buildType": "apk"
