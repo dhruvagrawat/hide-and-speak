@@ -2,11 +2,14 @@ import { Stack } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { PresenceProvider } from '@/lib/presence';
 import { ActiveConversationProvider } from '@/lib/activeConversation';
+import { CallProvider } from '@/lib/calls';
 import { NewMessageBanner } from '@/components/NewMessageBanner';
+import { CallOverlay } from '@/components/CallOverlay';
 
 export default function AppLayout() {
   return (
     <PresenceProvider>
+      <CallProvider>
       <ActiveConversationProvider>
         <Stack
           screenOptions={{
@@ -35,7 +38,9 @@ export default function AppLayout() {
           />
         </Stack>
         <NewMessageBanner />
+        <CallOverlay />
       </ActiveConversationProvider>
+      </CallProvider>
     </PresenceProvider>
   );
 }

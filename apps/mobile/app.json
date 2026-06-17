@@ -48,6 +48,13 @@
         {
           "microphonePermission": "Allow Hide & Speak to access your microphone to record voice notes."
         }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Allow Hide & Speak to use your camera for video calls.",
+          "microphonePermission": "Allow Hide & Speak to use your microphone for voice and video calls."
+        }
       ]
     ],
     "experiments": {

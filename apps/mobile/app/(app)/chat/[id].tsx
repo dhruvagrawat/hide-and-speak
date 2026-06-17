@@ -15,6 +15,7 @@ import type { PendingImage } from '@/lib/types';
 import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
 import { useActiveConversationRef } from '@/lib/activeConversation';
+import { useCalls } from '@/lib/calls';
 import { sendImageP2P } from '@/lib/p2p';
 import { Avatar } from '@/components/Avatar';
 import { VoiceRecorderButton, VoiceNoteBubble } from '@/components/VoiceNote';
@@ -34,6 +35,17 @@ export default function ChatScreen() {
 
   const flatRef = useRef<FlatList>(null);
   const recipientOnline = useIsOnline(recipientId);
+  const { placeCall } = useCalls();
+
+  const startCall = useCallback(
+    (mode: 'voice' | 'video') => {
+      placeCall(
+        { id: recipientId ?? `peer:${conversationId}`, name: username ?? 'Chat', avatar: null },
+        mode,
+      );
+    },
+    [placeCall, recipientId, conversationId, username],
+  );
 
   // Mark this conversation as "currently open" so the global new-message
   // banner stays quiet about it while you're already looking at it.
@@ -53,8 +65,18 @@ export default function ChatScreen() {
           <Text style={styles.headerSubtitle}>{recipientOnline ? '🟢 Online' : 'Offline'}</Text>
         </View>
       ),
+      headerRight: () => (
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => startCall('voice')} hitSlop={8}>
+            <Text style={styles.headerActionIcon}>📞</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => startCall('video')} hitSlop={8}>
+            <Text style={styles.headerActionIcon}>🎥</Text>
+          </TouchableOpacity>
+        </View>
+      ),
     });
-  }, [navigation, username, recipientOnline]);
+  }, [navigation, username, recipientOnline, startCall]);
 
   useEffect(() => {
     if (IS_DEMO) {
@@ -515,6 +537,8 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
   headerSubtitle: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
+  headerActions: { flexDirection: 'row', gap: 18, paddingRight: 4 },
+  headerActionIcon: { fontSize: 20 },
 
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
