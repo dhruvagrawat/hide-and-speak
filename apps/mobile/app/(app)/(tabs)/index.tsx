@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Modal, RefreshControl,
+  ActivityIndicator, Alert, Modal, RefreshControl, TextInput,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +15,7 @@ import { useFriendRequests } from '@/lib/friends';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
 import { ChatListSkeleton } from '@/components/Skeleton';
+import { Icon } from '@/components/Icon';
 
 function ConversationRow({
   item,
@@ -29,17 +30,22 @@ function ConversationRow({
   const Colors = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
+  const previewIcon =
+    item.last_message_type === 'image' ? 'image'
+      : item.last_message_type === 'voice_note' ? 'voice'
+        : null;
+
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 35).duration(280)}>
       <TouchableOpacity
-        style={styles.convItem}
+        style={styles.convCard}
         onPress={() =>
           router.push({
             pathname: '/(app)/chat/[id]',
             params: { id: item.id, username: item.other_user?.username ?? 'Unknown' },
           })
         }
-        activeOpacity={0.6}
+        activeOpacity={0.7}
       >
         {/* Avatar */}
         <View style={styles.avatarRing}>
@@ -48,8 +54,11 @@ function ConversationRow({
         </View>
         {/* Info */}
         <View style={styles.convInfo}>
-          <Text style={styles.convName}>{item.other_user?.username ?? 'Unknown'}</Text>
-          <Text style={styles.convLast} numberOfLines={1}>{item.last_message}</Text>
+          <Text style={styles.convName} numberOfLines={1}>{item.other_user?.username ?? 'Unknown'}</Text>
+          <View style={styles.convLastRow}>
+            {previewIcon && <Icon name={previewIcon} size={13} color={Colors.textSecondary} />}
+            <Text style={styles.convLast} numberOfLines={1}>{item.last_message}</Text>
+          </View>
         </View>
         {/* Time */}
         <Text style={styles.convTime}>
@@ -68,6 +77,17 @@ export default function ChatList() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [ownProfile, setOwnProfile] = useState<Profile | null>(IS_DEMO ? DEMO_PROFILE : null);
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter(
+      (c) =>
+        (c.other_user?.username ?? '').toLowerCase().includes(q) ||
+        (c.last_message ?? '').toLowerCase().includes(q),
+    );
+  }, [conversations, query]);
 
   // New chat modal — pick from people you're already friends with.
   const { friends } = useFriendRequests();
@@ -122,16 +142,19 @@ export default function ChatList() {
 
     const convs: Conversation[] = (otherMembers ?? []).map((row: any) => {
       const last = lastMsgMap[row.conversation_id];
+      const type: Conversation['last_message_type'] =
+        last?.message_type === 'image' ? 'image'
+          : last?.message_type === 'voice_note' ? 'voice_note'
+            : 'text';
       return {
         id: row.conversation_id,
         created_at: '',
         updated_at: '',
         other_user: row.profiles as Profile,
+        last_message_type: type,
         last_message: last
-          ? last.message_type === 'image'
-            ? '📷 Image'
-            : last.message_type === 'voice_note'
-              ? '🎙 Voice note'
+          ? type === 'image' ? 'Photo'
+            : type === 'voice_note' ? 'Voice note'
               : last.content ?? ''
           : 'Say hello!',
         last_message_at: last?.created_at ?? '',
@@ -243,26 +266,63 @@ export default function ChatList() {
           </ScalePressable>
           <Text style={styles.headerTitle}>Chats</Text>
         </View>
-        <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
-          <Text style={styles.signOutText}>{IS_DEMO ? '🧪 Demo' : 'Sign out'}</Text>
+        <TouchableOpacity onPress={handleSignOut} style={styles.headerAction}>
+          {IS_DEMO ? (
+            <View style={styles.demoChip}>
+              <Icon name="sparkles" size={12} color={Colors.primaryLight} />
+              <Text style={styles.demoChipText}>Demo</Text>
+            </View>
+          ) : (
+            <Icon name="signout" size={22} color={Colors.textSecondary} />
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Search */}
+      {!loading && conversations.length > 0 && (
+        <View style={styles.searchWrap}>
+          <Icon name="search" size={18} color={Colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search chats"
+            placeholderTextColor={Colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            returnKeyType="search"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
+              <Icon name="close" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {loading ? (
         <ChatListSkeleton />
       ) : conversations.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>💬</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="chatOutline" size={40} color={Colors.primaryLight} />
+          </View>
           <Text style={styles.emptyTitle}>No chats yet</Text>
           <Text style={styles.emptySubtitle}>Tap the button below to start a conversation</Text>
         </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.empty}>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="search" size={36} color={Colors.textMuted} />
+          </View>
+          <Text style={styles.emptyTitle}>No matches</Text>
+          <Text style={styles.emptySubtitle}>No chats match “{query.trim()}”</Text>
+        </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={filtered}
           keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
           renderItem={({ item, index }) => <ConversationRow item={item} formatTime={formatTime} index={index} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.listContent}
         />
       )}
@@ -270,7 +330,7 @@ export default function ChatList() {
       {/* Floating "new chat" button */}
       <ScalePressable style={styles.fab} onPress={() => setShowNewChat(true)}>
         <LinearGradient colors={Colors.fabGradient} style={styles.fabGradient}>
-          <Text style={styles.fabIcon}>✎</Text>
+          <Icon name="compose" size={24} color="#fff" />
         </LinearGradient>
       </ScalePressable>
 
@@ -315,7 +375,7 @@ export default function ChatList() {
                   <Text style={styles.friendName}>{item.username}</Text>
                   {startingId === item.id
                     ? <ActivityIndicator color={Colors.primaryLight} />
-                    : <Text style={styles.friendChevron}>›</Text>}
+                    : <Icon name="forward" size={20} color={Colors.textMuted} />}
                 </TouchableOpacity>
               )}
             />
@@ -340,27 +400,62 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, letterSpacing: 0.2 },
-  signOutBtn: { padding: 6 },
-  signOutText: { color: Colors.textSecondary, fontSize: 14 },
+  headerAction: { padding: 6 },
+  demoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  demoChipText: { color: Colors.primaryLight, fontSize: 12, fontWeight: '700' },
 
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
-  emptyIcon: { fontSize: 52, marginBottom: 8 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 4,
+    height: 44,
+  },
+  searchInput: { flex: 1, color: Colors.text, fontSize: 15, paddingVertical: 0 },
+
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 40 },
+  emptyIconWrap: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
   emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 },
 
-  listContent: { paddingBottom: 100 },
-  convItem: {
+  listContent: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 100 },
+  convCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    marginBottom: 8,
     gap: 13,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   avatarRing: {
-    borderWidth: 2,
-    borderColor: Colors.border,
     borderRadius: 29,
-    padding: 2,
   },
   onlineDot: {
     position: 'absolute',
@@ -375,9 +470,9 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
   },
   convInfo: { flex: 1 },
   convName: { fontSize: 16, fontWeight: '700', color: Colors.text },
-  convLast: { fontSize: 13, color: Colors.textSecondary, marginTop: 3 },
-  convTime: { fontSize: 12, color: Colors.textMuted },
-  separator: { height: 1, backgroundColor: Colors.border, marginLeft: 79 },
+  convLastRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  convLast: { flex: 1, fontSize: 13, color: Colors.textSecondary },
+  convTime: { fontSize: 12, color: Colors.textMuted, alignSelf: 'flex-start', marginTop: 2 },
 
   fab: {
     position: 'absolute',
@@ -397,7 +492,6 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fabIcon: { fontSize: 24, color: '#fff' },
 
   // Modal
   modalBackdrop: { flex: 1, backgroundColor: Colors.overlay },
@@ -441,5 +535,4 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     paddingVertical: 11,
   },
   friendName: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '600' },
-  friendChevron: { color: Colors.textMuted, fontSize: 26, fontWeight: '300' },
 });

@@ -7,6 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { verifyPhoneOtp, sendPhoneOtp } from '@/lib/auth';
 import { Colors } from '@/constants/colors';
+import { Icon } from '@/components/Icon';
 
 const OTP_LENGTH = 6;
 
@@ -84,12 +85,13 @@ export default function OtpScreen() {
       <View style={styles.container}>
         {/* Back */}
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
+          <Icon name="back" size={18} color={Colors.textSecondary} />
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
         <View style={styles.content}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>💬</Text>
+            <Icon name="chat" size={34} color="#fff" />
           </View>
           <Text style={styles.title}>Enter OTP</Text>
           <Text style={styles.subtitle}>
@@ -142,7 +144,7 @@ export default function OtpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backBtn: { padding: 20, paddingBottom: 0 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 20, paddingBottom: 0 },
   backText: { color: Colors.textSecondary, fontSize: 15 },
 
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
@@ -152,7 +154,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', marginBottom: 24,
     borderWidth: 1, borderColor: Colors.border,
   },
-  iconText: { fontSize: 36 },
 
   title: { fontSize: 28, fontWeight: '700', color: Colors.text, marginBottom: 10 },
   subtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 36 },

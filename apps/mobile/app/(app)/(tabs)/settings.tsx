@@ -16,11 +16,12 @@ import { supabase } from '@/lib/supabase';
 import { useTheme, useThemeControls, type Palette } from '@/lib/theme';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
-import { PixelIcon } from '@/components/PixelIcon';
+import { Icon, type IconName } from '@/components/Icon';
 import { pickAndUploadAvatar } from '@/lib/avatar';
 import { useAppLock } from '@/lib/applock';
 import { useCalls } from '@/lib/calls';
 import { triggerDemoBanner } from '@/lib/notify';
+import { notifyNewMessage, notifyIncomingCall } from '@/lib/notifications';
 import { IS_DEMO, DEMO_PROFILE, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { Profile } from '@/lib/types';
 
@@ -33,7 +34,7 @@ function Row({
   danger,
   right,
 }: {
-  icon: string;
+  icon: IconName;
   title: string;
   subtitle?: string;
   onPress?: () => void;
@@ -51,14 +52,14 @@ function Row({
       accessibilityRole="button"
       accessibilityLabel={title}
     >
-      <View style={styles.rowIcon}>
-        <PixelIcon name={icon} size={20} color={danger ? Colors.error : Colors.primaryLight} />
+      <View style={[styles.rowIcon, danger && { backgroundColor: 'rgba(244,67,54,0.12)' }]}>
+        <Icon name={icon} size={19} color={danger ? Colors.error : Colors.primaryLight} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.rowTitle, danger && { color: Colors.error }]}>{title}</Text>
         {subtitle && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
       </View>
-      {right ?? (onPress && <Text style={styles.rowChevron}>›</Text>)}
+      {right ?? (onPress && <Icon name="forward" size={18} color={Colors.textMuted} />)}
     </TouchableOpacity>
   );
 }
@@ -153,23 +154,32 @@ export default function SettingsScreen() {
     lock();
   };
 
-  // Demo-only notification/call test triggers.
+  // Demo-only notification/call test triggers. Each fires BOTH the in-app
+  // banner/overlay AND a real OS notification, so you can verify the actual
+  // tray notification (not just the in-app UI).
   const demoConv = DEMO_CONVERSATIONS[0];
-  const testBanner = () =>
+  const peerName = demoConv?.other_user?.username ?? 'Maya';
+  const testBanner = () => {
     triggerDemoBanner({
       conversationId: demoConv?.id ?? 'demo-conv-1',
-      username: demoConv?.other_user?.username ?? 'Maya',
+      username: peerName,
     });
-  const testVoiceCall = () =>
+    notifyNewMessage(peerName, demoConv?.id ?? 'demo-conv-1');
+  };
+  const testVoiceCall = () => {
     simulateIncoming(
-      { id: demoConv?.other_user?.id ?? 'demo', name: demoConv?.other_user?.username ?? 'Maya', avatar: demoConv?.other_user?.avatar_url },
+      { id: demoConv?.other_user?.id ?? 'demo', name: peerName, avatar: demoConv?.other_user?.avatar_url },
       'voice',
     );
-  const testVideoCall = () =>
+    notifyIncomingCall(peerName, 'voice');
+  };
+  const testVideoCall = () => {
     simulateIncoming(
-      { id: demoConv?.other_user?.id ?? 'demo', name: demoConv?.other_user?.username ?? 'Maya', avatar: demoConv?.other_user?.avatar_url },
+      { id: demoConv?.other_user?.id ?? 'demo', name: peerName, avatar: demoConv?.other_user?.avatar_url },
       'video',
     );
+    notifyIncomingCall(peerName, 'video');
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -181,7 +191,7 @@ export default function SettingsScreen() {
           <View style={styles.avatarWrap}>
             <Avatar username={profile?.username} avatarUrl={profile?.avatar_url} size={76} />
             <View style={styles.cameraBadge}>
-              {uploading ? <ActivityIndicator size="small" color="#fff" /> : <PixelIcon name="edit" size={13} color="#fff" />}
+              {uploading ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="camera" size={13} color="#fff" />}
             </View>
           </View>
         </ScalePressable>
@@ -203,7 +213,7 @@ export default function SettingsScreen() {
       <View style={styles.group}>
         <View style={styles.themeRow}>
           <View style={styles.rowIcon}>
-            <PixelIcon name="paint" size={20} color={Colors.primaryLight} />
+            <Icon name="palette" size={20} color={Colors.primaryLight} />
           </View>
           <Text style={styles.rowTitle}>Theme</Text>
         </View>
@@ -230,7 +240,7 @@ export default function SettingsScreen() {
                   <View style={[styles.swatchDot, { backgroundColor: t.palette.accent }]} />
                   {active && (
                     <View style={styles.swatchCheck}>
-                      <PixelIcon name="check" size={12} color={t.palette.primaryLight} />
+                      <Icon name="check" size={14} color={t.palette.primaryLight} />
                     </View>
                   )}
                 </View>
@@ -259,7 +269,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionLabel}>Demo &amp; testing</Text>
           <View style={styles.group}>
             <Row icon="bell" title="Test message banner" subtitle="Fire the “new message from…” notification" onPress={testBanner} />
-            <Row icon="phone" title="Test incoming voice call" subtitle="Ring a fake incoming call" onPress={testVoiceCall} />
+            <Row icon="call" title="Test incoming voice call" subtitle="Ring a fake incoming call" onPress={testVoiceCall} />
             <Row icon="video" title="Test incoming video call" subtitle="Ring a fake incoming video call" onPress={testVideoCall} />
           </View>
           <Text style={styles.hint}>These buttons only appear in demo mode.</Text>
@@ -270,7 +280,7 @@ export default function SettingsScreen() {
       <Text style={styles.sectionLabel}>About</Text>
       <View style={styles.group}>
         <Row icon="heart" title="Hide & Speak" subtitle="Version 1.0.0 · Private. Hidden. Yours." />
-        <Row icon="door" title="Sign out" danger onPress={signOut} />
+        <Row icon="signout" title="Sign out" danger onPress={signOut} />
       </View>
 
       {/* Edit username modal */}
@@ -371,7 +381,6 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
   rowIcon: { width: 26, alignItems: 'center', justifyContent: 'center' },
   rowTitle: { color: Colors.text, fontSize: 16, fontWeight: '600' },
   rowSubtitle: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  rowChevron: { color: Colors.textMuted, fontSize: 24, fontWeight: '300' },
   hint: { color: Colors.textMuted, fontSize: 12, marginTop: 8, marginLeft: 4 },
 
   themeRow: {

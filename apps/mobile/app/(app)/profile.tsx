@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { Avatar } from '@/components/Avatar';
+import { Icon } from '@/components/Icon';
 import { pickAndUploadAvatar } from '@/lib/avatar';
 import { IS_DEMO, DEMO_PROFILE } from '@/lib/demo';
 import { Profile } from '@/lib/types';
@@ -49,7 +50,8 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <Text style={styles.backText}>← Back</Text>
+        <Icon name="back" size={18} color={Colors.textSecondary} />
+        <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
 
       <View style={styles.avatarArea}>
@@ -58,7 +60,10 @@ export default function ProfileScreen() {
           {uploading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.changeBtnText}>📷 Change photo</Text>
+            <>
+              <Icon name="camera" size={15} color="#fff" />
+              <Text style={styles.changeBtnText}>Change photo</Text>
+            </>
           )}
         </TouchableOpacity>
       </View>
@@ -67,7 +72,7 @@ export default function ProfileScreen() {
       <Text style={styles.email}>{profile.email}</Text>
 
       <TouchableOpacity style={styles.vaultRow} onPress={() => router.push('/(app)/gallery')} activeOpacity={0.8}>
-        <Text style={styles.vaultIcon}>🗝️</Text>
+        <Icon name="key" size={24} color={Colors.primaryLight} />
         <View style={{ flex: 1 }}>
           <Text style={styles.vaultTitle}>Image vault</Text>
           <Text style={styles.vaultHint}>Private in-app gallery — kept off your device gallery</Text>
@@ -81,10 +86,13 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 24 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-  backBtn: { paddingTop: 16, paddingBottom: 8 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 16, paddingBottom: 8 },
   backText: { color: Colors.textSecondary, fontSize: 15 },
   avatarArea: { alignItems: 'center', marginTop: 24, gap: 16 },
   changeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     backgroundColor: Colors.primary,
     borderRadius: 20,
     paddingHorizontal: 18,
@@ -105,7 +113,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 36,
   },
-  vaultIcon: { fontSize: 26 },
   vaultTitle: { color: Colors.text, fontSize: 16, fontWeight: '700' },
   vaultHint: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   vaultChevron: { color: Colors.textMuted, fontSize: 26, fontWeight: '300' },

@@ -9,7 +9,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useTheme, type Palette } from '@/lib/theme';
-import { PixelIcon } from '@/components/PixelIcon';
+import { Icon } from '@/components/Icon';
 import { Message } from '@/lib/types';
 import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
 import type { PendingImage } from '@/lib/types';
@@ -63,20 +63,26 @@ export default function ChatScreen() {
     navigation.setOptions({
       title: username ?? 'Chat',
       headerTitle: () => (
-        <View>
-          <Text style={styles.headerTitle}>{username ?? 'Chat'}</Text>
-          <Text style={[styles.headerSubtitle, recipientOnline && { color: Colors.success }]}>
-            {recipientOnline ? 'Online' : 'Offline'}
-          </Text>
+        <View style={styles.headerTitleRow}>
+          <Avatar username={username} avatarUrl={null} size={34} />
+          <View>
+            <Text style={styles.headerTitle}>{username ?? 'Chat'}</Text>
+            <View style={styles.headerPresenceRow}>
+              {recipientOnline && <View style={styles.headerOnlineDot} />}
+              <Text style={[styles.headerSubtitle, recipientOnline && { color: Colors.success }]}>
+                {recipientOnline ? 'Online' : 'Offline'}
+              </Text>
+            </View>
+          </View>
         </View>
       ),
       headerRight: () => (
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => startCall('voice')} hitSlop={8} accessibilityLabel="Voice call">
-            <PixelIcon name="phone" size={18} color={Colors.text} />
+            <Icon name="call" size={21} color={Colors.text} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => startCall('video')} hitSlop={8} accessibilityLabel="Video call">
-            <PixelIcon name="video" size={18} color={Colors.text} />
+            <Icon name="video" size={22} color={Colors.text} />
           </TouchableOpacity>
         </View>
       ),
@@ -512,38 +518,49 @@ export default function ChatScreen() {
       />
 
       <View style={styles.inputBar}>
-        <ImagePickerButton onImageReady={sendImage} recipientOnline={recipientOnline} />
-        <VoiceRecorderButton onRecorded={sendVoiceNote} />
+        <View style={styles.composer}>
+          <ImagePickerButton onImageReady={sendImage} recipientOnline={recipientOnline} />
+          <TextInput
+            style={styles.input}
+            placeholder="Message…"
+            placeholderTextColor={Colors.textMuted}
+            value={text}
+            onChangeText={setText}
+            multiline
+            maxLength={2000}
+          />
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Message…"
-          placeholderTextColor={Colors.textMuted}
-          value={text}
-          onChangeText={setText}
-          multiline
-          maxLength={2000}
-        />
-
-        <TouchableOpacity
-          style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-          onPress={sendText}
-          disabled={!text.trim() || sending}
-        >
-          {sending
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.sendIcon}>➤</Text>}
-        </TouchableOpacity>
+        {/* Right slot: send while typing, voice note when empty (WhatsApp-style). */}
+        {text.trim() ? (
+          <TouchableOpacity
+            style={styles.sendBtn}
+            onPress={sendText}
+            disabled={sending}
+            activeOpacity={0.85}
+            accessibilityLabel="Send message"
+          >
+            <LinearGradient colors={Colors.fabGradient} style={[styles.sendBtnInner, sending && styles.sendBtnDisabled]}>
+              {sending
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Icon name="send" size={20} color="#fff" />}
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <VoiceRecorderButton onRecorded={sendVoiceNote} />
+        )}
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const makeStyles = (Colors: Palette) => StyleSheet.create({
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
   headerSubtitle: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
-  headerActions: { flexDirection: 'row', gap: 18, paddingRight: 4 },
-  headerActionIcon: { fontSize: 20 },
+  headerPresenceRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
+  headerOnlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.success },
+  headerActions: { flexDirection: 'row', gap: 20, paddingRight: 4 },
 
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
@@ -637,35 +654,44 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 8 : 10,
-    gap: 6,
+    gap: 8,
     backgroundColor: Colors.background,
   },
-  input: {
+  // Single rounded "composer" pill holding attach · input · voice, so the
+  // controls read as one cohesive field instead of scattered buttons.
+  composer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.inputBg,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 11,
-    paddingBottom: 11,
+    paddingHorizontal: 6,
+    minHeight: 46,
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingTop: Platform.OS === 'ios' ? 12 : 8,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 8,
     color: Colors.text,
     fontSize: 15,
     maxHeight: 120,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: Colors.primary,
     shadowOpacity: 0.5,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 5,
   },
-  sendBtnDisabled: { opacity: 0.4, shadowOpacity: 0 },
-  sendIcon: { color: '#fff', fontSize: 16, marginLeft: 2 },
+  sendBtnInner: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendBtnDisabled: { opacity: 0.45 },
 });

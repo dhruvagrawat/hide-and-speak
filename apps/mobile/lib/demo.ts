@@ -107,7 +107,8 @@ export const DEMO_CONVERSATIONS: Conversation[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     other_user: FRIEND,
-    last_message: '📷 Image',
+    last_message: 'Photo',
+    last_message_type: 'image',
     last_message_at: new Date(Date.now() - 4 * 60_000).toISOString(),
   },
   {

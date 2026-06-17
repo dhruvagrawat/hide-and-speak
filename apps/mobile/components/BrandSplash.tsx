@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Colors } from '@/constants/colors';
+import { LogoMark, Wordmark } from '@/components/Logo';
 
 /**
  * BrandSplash — the animated "Hide & Speak" loading screen.
@@ -53,15 +54,13 @@ export function BrandSplash({ tagline = 'Private. Hidden. Yours.' }: { tagline?:
       <View style={styles.center}>
         <View style={styles.markWrap}>
           <Animated.View style={[styles.halo, ringStyle]} />
-          <Animated.View style={logoStyle}>
-            <LinearGradient colors={Colors.fabGradient} style={styles.mark}>
-              <Text style={styles.markGlyph}>🔒</Text>
-            </LinearGradient>
+          <Animated.View style={[logoStyle, styles.markShadow]}>
+            <LogoMark size={92} />
           </Animated.View>
         </View>
 
         <Animated.View style={logoStyle}>
-          <Text style={styles.title}>Hide & Speak</Text>
+          <Wordmark size={30} />
         </Animated.View>
 
         <Animated.Text style={[styles.tagline, taglineStyle]}>{tagline}</Animated.Text>
@@ -108,20 +107,13 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: Colors.primaryLight,
   },
-  mark: {
-    width: 92,
-    height: 92,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
+  markShadow: {
     shadowColor: Colors.primary,
     shadowOpacity: 0.6,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     elevation: 12,
   },
-  markGlyph: { fontSize: 44 },
-  title: { fontSize: 30, fontWeight: '800', color: Colors.text, letterSpacing: 0.5 },
   tagline: { fontSize: 14, color: Colors.textSecondary, marginTop: 8, letterSpacing: 0.3 },
   dotsWrap: { position: 'absolute', bottom: 64 },
   dotsRow: { flexDirection: 'row', gap: 8 },

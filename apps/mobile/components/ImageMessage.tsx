@@ -32,6 +32,7 @@ import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/colors';
+import { Icon, type IconName } from '@/components/Icon';
 import { ImageFilter, PendingImage } from '@/lib/types';
 import { saveToVault } from '@/lib/vault';
 
@@ -166,7 +167,7 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
         {/* Hidden badge */}
         {isHidden && (
           <View style={styles.revealBadge}>
-            <Text style={styles.lockIcon}>🔒</Text>
+            <Icon name="eyeOff" size={15} color="#fff" />
             <Text style={styles.revealText}>Tap to reveal</Text>
           </View>
         )}
@@ -195,7 +196,8 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
             contentFit="contain"
           />
           <TouchableOpacity style={styles.fsSaveBtn} onPress={saveToVaultLocal}>
-            <Text style={styles.fsSaveBtnText}>🗝️ Save to vault</Text>
+            <Icon name="key" size={16} color="#fff" />
+            <Text style={styles.fsSaveBtnText}>Save to vault</Text>
           </TouchableOpacity>
         </Pressable>
       </Modal>
@@ -251,16 +253,16 @@ export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePicker
     setPickedUri(null);
   };
 
-  const FILTERS: { id: ImageFilter; label: string; icon: string }[] = [
-    { id: 'blur', label: 'Blur', icon: '🌫' },
-    { id: 'pixelate', label: 'Pixelate', icon: '▦' },
-    { id: 'noir', label: 'Noir', icon: '◑' },
+  const FILTERS: { id: ImageFilter; label: string; icon: IconName }[] = [
+    { id: 'blur', label: 'Blur', icon: 'blur' },
+    { id: 'pixelate', label: 'Pixelate', icon: 'grid' },
+    { id: 'noir', label: 'Noir', icon: 'moon' },
   ];
 
   return (
     <>
-      <TouchableOpacity style={styles.pickerBtn} onPress={openPicker} activeOpacity={0.7}>
-        <Text style={styles.pickerBtnIcon}>📎</Text>
+      <TouchableOpacity style={styles.pickerBtn} onPress={openPicker} activeOpacity={0.7} accessibilityLabel="Attach image">
+        <Icon name="attach" size={26} color={Colors.primaryLight} />
       </TouchableOpacity>
 
       {/* Options sheet */}
@@ -277,7 +279,7 @@ export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePicker
               {hidden && <FilterOverlay filter={filter} />}
               {hidden && (
                 <View style={styles.previewBadge}>
-                  <Text style={styles.lockIcon}>🔒</Text>
+                  <Icon name="lock" size={13} color="#fff" />
                   <Text style={styles.previewBadgeText}>Hidden</Text>
                 </View>
               )}
@@ -291,17 +293,15 @@ export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePicker
               style={[styles.toggleBtn, !hidden && styles.toggleBtnActive]}
               onPress={() => setHidden(false)}
             >
-              <Text style={[styles.toggleBtnText, !hidden && styles.toggleBtnTextActive]}>
-                👁  Visible
-              </Text>
+              <Icon name="eye" size={17} color={!hidden ? '#fff' : Colors.textSecondary} />
+              <Text style={[styles.toggleBtnText, !hidden && styles.toggleBtnTextActive]}>Visible</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggleBtn, hidden && styles.toggleBtnActiveRed]}
               onPress={() => setHidden(true)}
             >
-              <Text style={[styles.toggleBtnText, hidden && styles.toggleBtnTextActive]}>
-                🔒 Hidden
-              </Text>
+              <Icon name="lock" size={16} color={hidden ? '#fff' : Colors.textSecondary} />
+              <Text style={[styles.toggleBtnText, hidden && styles.toggleBtnTextActive]}>Hidden</Text>
             </TouchableOpacity>
           </View>
 
@@ -316,7 +316,7 @@ export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePicker
                     style={[styles.filterBtn, filter === f.id && styles.filterBtnActive]}
                     onPress={() => setFilter(f.id)}
                   >
-                    <Text style={styles.filterBtnIcon}>{f.icon}</Text>
+                    <Icon name={f.icon} size={20} color={filter === f.id ? Colors.text : Colors.textSecondary} />
                     <Text style={[styles.filterBtnLabel, filter === f.id && styles.filterBtnLabelActive]}>
                       {f.label}
                     </Text>
@@ -333,10 +333,13 @@ export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePicker
             activeOpacity={0.7}
           >
             <View style={[styles.p2pCheckbox, p2p && styles.p2pCheckboxActive]}>
-              {p2p && <Text style={styles.p2pCheckmark}>✓</Text>}
+              {p2p && <Icon name="check" size={13} color="#fff" />}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.p2pLabel}>📡 Send peer-to-peer</Text>
+              <View style={styles.p2pLabelRow}>
+                <Icon name="p2p" size={15} color={Colors.text} />
+                <Text style={styles.p2pLabel}>Send peer-to-peer</Text>
+              </View>
               <Text style={styles.p2pHint}>
                 {recipientOnline
                   ? 'They’re online — this can skip the server entirely.'
@@ -346,9 +349,8 @@ export function ImagePickerButton({ onImageReady, recipientOnline }: ImagePicker
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
-            <Text style={styles.sendBtnText}>
-              {hidden ? '🔒 Send hidden' : '📤 Send image'}
-            </Text>
+            <Icon name={hidden ? 'lock' : 'send'} size={17} color="#fff" />
+            <Text style={styles.sendBtnText}>{hidden ? 'Send hidden' : 'Send image'}</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -383,7 +385,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 6,
   },
-  lockIcon: { fontSize: 16 },
   revealText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   filterTag: {
     position: 'absolute',
@@ -432,6 +433,9 @@ const styles = StyleSheet.create({
   },
   fsSaveBtn: {
     marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -446,7 +450,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pickerBtnIcon: { fontSize: 22 },
 
   // Options sheet
   sheetBackdrop: { flex: 1, backgroundColor: Colors.overlay },
@@ -500,9 +503,12 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   toggleBtn: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
+    gap: 7,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.inputBg,
@@ -523,7 +529,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   filterBtnActive: { borderColor: Colors.primaryLight, backgroundColor: Colors.primaryDark },
-  filterBtnIcon: { fontSize: 20 },
   filterBtnLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
   filterBtnLabelActive: { color: '#fff' },
   p2pRow: {
@@ -548,14 +553,17 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   p2pCheckboxActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  p2pCheckmark: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  p2pLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   p2pLabel: { color: Colors.text, fontSize: 14, fontWeight: '600' },
   p2pHint: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   sendBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
+    gap: 8,
     elevation: 6,
   },
   sendBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },

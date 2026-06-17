@@ -1,15 +1,19 @@
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, type ColorValue } from 'react-native';
 import { useTheme } from '@/lib/theme';
 import { useFriendRequests } from '@/lib/friends';
-import { PixelIcon } from '@/components/PixelIcon';
+import { Icon, type IconName } from '@/components/Icon';
 
 /**
  * Bottom-tab shell for the main app: Chats · Status · Requests · Settings.
  * Each tab screen renders its own in-screen header, so the native header is
- * off here. Icons are crisp pixel-art glyphs (see PixelIcon) that tint with
- * the active theme.
+ * off here. Icons are clean line glyphs (Ionicons via the Icon wrapper) that
+ * fill in when their tab is active and tint with the current theme.
  */
+const tabIcon = (filled: IconName, outline: IconName) =>
+  ({ color, focused }: { color: ColorValue; focused: boolean }) => (
+    <Icon name={focused ? filled : outline} size={24} color={color} />
+  );
 export default function TabsLayout() {
   const Colors = useTheme();
   const { incomingCount } = useFriendRequests();
@@ -36,7 +40,7 @@ export default function TabsLayout() {
         options={{
           title: 'Chats',
           tabBarAccessibilityLabel: 'Chats',
-          tabBarIcon: ({ color }) => <PixelIcon name="chat" size={22} color={color} />,
+          tabBarIcon: tabIcon('chat', 'chatOutline'),
         }}
       />
       <Tabs.Screen
@@ -44,7 +48,7 @@ export default function TabsLayout() {
         options={{
           title: 'Status',
           tabBarAccessibilityLabel: 'Status updates',
-          tabBarIcon: ({ color }) => <PixelIcon name="status" size={22} color={color} />,
+          tabBarIcon: tabIcon('status', 'statusOutline'),
         }}
       />
       <Tabs.Screen
@@ -54,7 +58,7 @@ export default function TabsLayout() {
           tabBarAccessibilityLabel: 'Friend requests',
           tabBarBadge: incomingCount > 0 ? incomingCount : undefined,
           tabBarBadgeStyle: { backgroundColor: Colors.accent, fontSize: 10 },
-          tabBarIcon: ({ color }) => <PixelIcon name="people" size={22} color={color} />,
+          tabBarIcon: tabIcon('people', 'peopleOutline'),
         }}
       />
       <Tabs.Screen
@@ -62,7 +66,7 @@ export default function TabsLayout() {
         options={{
           title: 'Settings',
           tabBarAccessibilityLabel: 'Settings',
-          tabBarIcon: ({ color }) => <PixelIcon name="gear" size={22} color={color} />,
+          tabBarIcon: tabIcon('settings', 'settingsOutline'),
         }}
       />
     </Tabs>

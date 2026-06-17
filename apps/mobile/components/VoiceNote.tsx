@@ -8,6 +8,7 @@ import {
   requestRecordingPermissionsAsync,
 } from 'expo-audio';
 import { Colors } from '@/constants/colors';
+import { Icon } from '@/components/Icon';
 
 function formatSeconds(total: number) {
   const m = Math.floor(total / 60);
@@ -69,15 +70,15 @@ export function VoiceRecorderButton({ onRecorded }: VoiceRecorderButtonProps) {
           <Text style={styles.recCancelText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={stopAndSend} style={styles.recSendBtn}>
-          <Text style={styles.recSendIcon}>➤</Text>
+          <Icon name="send" size={15} color="#fff" />
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <TouchableOpacity style={styles.micBtn} onPress={startRecording} activeOpacity={0.7}>
-      <Text style={styles.micIcon}>🎙</Text>
+    <TouchableOpacity style={styles.micBtn} onPress={startRecording} activeOpacity={0.7} accessibilityLabel="Record voice note">
+      <Icon name="mic" size={22} color={Colors.primaryLight} />
     </TouchableOpacity>
   );
 }
@@ -109,7 +110,7 @@ export function VoiceNoteBubble({ uri, isMine }: VoiceNoteBubbleProps) {
   return (
     <TouchableOpacity style={styles.voiceRow} onPress={toggle} activeOpacity={0.8}>
       <View style={[styles.playBtn, { backgroundColor: tint }]}>
-        <Text style={styles.playIcon}>{status.playing ? '⏸' : '▶'}</Text>
+        <Icon name={status.playing ? 'pause' : 'play'} size={14} color={Colors.background} />
       </View>
       <View style={styles.waveTrack}>
         <View style={[styles.waveFill, { width: `${progress * 100}%`, backgroundColor: tint }]} />
@@ -120,8 +121,11 @@ export function VoiceNoteBubble({ uri, isMine }: VoiceNoteBubbleProps) {
 }
 
 const styles = StyleSheet.create({
-  micBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  micIcon: { fontSize: 20 },
+  micBtn: {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: Colors.surfaceAlt,
+    justifyContent: 'center', alignItems: 'center',
+  },
 
   recordingBar: {
     flexDirection: 'row',
@@ -140,11 +144,9 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
-  recSendIcon: { color: '#fff', fontSize: 14 },
 
   voiceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 170, paddingVertical: 2 },
   playBtn: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  playIcon: { fontSize: 13, color: Colors.background },
   waveTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' },
   waveFill: { height: '100%', borderRadius: 2 },
   voiceDuration: { color: Colors.textSecondary, fontSize: 11, minWidth: 32, textAlign: 'right' },

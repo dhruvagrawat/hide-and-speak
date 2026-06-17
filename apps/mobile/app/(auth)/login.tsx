@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { signInWithGoogle, sendPhoneOtp } from '@/lib/auth';
 import { Colors } from '@/constants/colors';
+import { LogoMark, Wordmark } from '@/components/Logo';
 
 type AuthTab = 'email' | 'phone';
 
@@ -83,10 +84,8 @@ export default function Login() {
 
         {/* Logo */}
         <View style={styles.logoArea}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoGlyph}>✦</Text>
-          </View>
-          <Text style={styles.appName}>Hide & Speak</Text>
+          <LogoMark size={76} style={{ marginBottom: 16 }} />
+          <Wordmark size={28} />
           <Text style={styles.tagline}>Private. Secure. Just for you.</Text>
         </View>
 
@@ -208,13 +207,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
 
   logoArea: { alignItems: 'center', marginBottom: 36 },
-  logoCircle: {
-    width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.primary,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 14, elevation: 12,
-  },
-  logoGlyph: { fontSize: 32, color: '#fff' },
-  appName: { fontSize: 28, fontWeight: '700', color: Colors.text, letterSpacing: 1.5 },
-  tagline: { fontSize: 13, color: Colors.textSecondary, marginTop: 4 },
+  tagline: { fontSize: 13, color: Colors.textSecondary, marginTop: 6 },
 
   card: {
     backgroundColor: Colors.surface, borderRadius: 20,

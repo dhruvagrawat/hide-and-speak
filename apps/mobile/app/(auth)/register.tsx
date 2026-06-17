@@ -7,6 +7,7 @@ import { Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
+import { LogoMark, Wordmark } from '@/components/Logo';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -56,10 +57,8 @@ export default function Register() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Logo */}
         <View style={styles.logoArea}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoGlyph}>✦</Text>
-          </View>
-          <Text style={styles.appName}>Hide & Speak</Text>
+          <LogoMark size={68} style={{ marginBottom: 14 }} />
+          <Wordmark size={26} />
           <Text style={styles.tagline}>Create your account</Text>
         </View>
 
@@ -145,19 +144,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 36,
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    elevation: 10,
-  },
-  logoGlyph: { fontSize: 28, color: '#fff' },
-  appName: { fontSize: 28, fontWeight: '700', color: Colors.text, letterSpacing: 1.5 },
-  tagline: { fontSize: 13, color: Colors.textSecondary, marginTop: 4 },
+  tagline: { fontSize: 13, color: Colors.textSecondary, marginTop: 6 },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 20,

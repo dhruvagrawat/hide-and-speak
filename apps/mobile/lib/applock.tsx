@@ -3,6 +3,7 @@ import { AppState, AppStateStatus, View, Text, TouchableOpacity, StyleSheet } fr
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme, type Palette } from '@/lib/theme';
+import { Icon } from '@/components/Icon';
 
 interface AppLockValue {
   locked: boolean;
@@ -96,7 +97,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
           <LinearGradient colors={Colors.heroGradient} style={StyleSheet.absoluteFill} />
           <View style={styles.content}>
             <View style={styles.iconCircle}>
-              <Text style={styles.icon}>🔒</Text>
+              <Icon name="lock" size={32} color="#fff" />
             </View>
             <Text style={styles.title}>Hide & Speak is locked</Text>
             <Text style={styles.subtitle}>
@@ -110,8 +111,9 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
               disabled={authenticating}
               activeOpacity={0.85}
             >
+              {canAuthenticate && <Icon name="unlock" size={17} color="#fff" />}
               <Text style={styles.buttonText}>
-                {canAuthenticate ? '🔓 Unlock' : 'Continue'}
+                {canAuthenticate ? 'Unlock' : 'Continue'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -138,10 +140,10 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.primary,
     justifyContent: 'center', alignItems: 'center', marginBottom: 20,
   },
-  icon: { fontSize: 32 },
   title: { fontSize: 20, fontWeight: '700', color: Colors.text, marginBottom: 8, textAlign: 'center' },
   subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginBottom: 28 },
   button: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.primary, borderRadius: 24, paddingHorizontal: 32,
     paddingVertical: 14, elevation: 6,
   },

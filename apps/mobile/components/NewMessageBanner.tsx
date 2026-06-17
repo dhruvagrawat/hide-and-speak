@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Animated, AppState, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { IS_DEMO } from '@/lib/demo';
 import { useActiveConversationRef } from '@/lib/activeConversation';
 import { onDemoBanner } from '@/lib/notify';
+import { notifyNewMessage } from '@/lib/notifications';
+import { Icon } from '@/components/Icon';
 import { Colors } from '@/constants/colors';
 import { Message } from '@/lib/types';
 
@@ -59,7 +61,14 @@ export function NewMessageBanner() {
             .eq('id', msg.sender_id)
             .single();
 
-          show({ conversationId: msg.conversation_id, username: profile?.username ?? 'Someone' });
+          const username = profile?.username ?? 'Someone';
+          if (AppState.currentState === 'active') {
+            // Foreground: the in-app banner is enough.
+            show({ conversationId: msg.conversation_id, username });
+          } else {
+            // Backgrounded: fire a real OS notification instead.
+            notifyNewMessage(username, msg.conversation_id);
+          }
         },
       )
       .subscribe();
@@ -103,7 +112,7 @@ export function NewMessageBanner() {
           router.push({ pathname: '/(app)/chat/[id]', params: { id, username: banner.username } });
         }}
       >
-        <Text style={styles.icon}>🔒</Text>
+        <Icon name="lock" size={15} color={Colors.primaryLight} />
         <Text style={styles.text}>New message from {banner.username}</Text>
       </TouchableOpacity>
     </Animated.View>
@@ -124,6 +133,5 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     elevation: 8,
   },
-  icon: { fontSize: 15 },
   text: { color: Colors.text, fontSize: 14, fontWeight: '600' },
 });

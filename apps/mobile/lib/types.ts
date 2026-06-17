@@ -17,6 +17,8 @@ export interface Conversation {
   updated_at: string;
   other_user?: Profile;
   last_message?: string;
+  /** Lets the chat list show an icon (photo/voice) instead of emoji text. */
+  last_message_type?: 'text' | 'image' | 'voice_note';
   last_message_at?: string;
   unread_count?: number;
 }

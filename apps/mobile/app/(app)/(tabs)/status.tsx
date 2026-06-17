@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme, type Palette } from '@/lib/theme';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
+import { Icon } from '@/components/Icon';
 import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_STORY_GROUPS } from '@/lib/demo';
 import { Story, StoryGroup, Profile } from '@/lib/types';
 
@@ -290,7 +291,7 @@ function StoryViewer({ group, onClose }: { group: StoryGroup; onClose: () => voi
             <Text style={styles.viewerTime}>{timeAgo(story.created_at)}</Text>
           </View>
           <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityLabel="Close status">
-            <Text style={styles.viewerClose}>✕</Text>
+            <Icon name="close" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -387,7 +388,6 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
   },
   viewerName: { color: '#fff', fontSize: 15, fontWeight: '700' },
   viewerTime: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
-  viewerClose: { color: '#fff', fontSize: 22, fontWeight: '300' },
   tapLeft: { position: 'absolute', left: 0, top: 100, bottom: 0, width: '35%' },
   tapRight: { position: 'absolute', right: 0, top: 100, bottom: 0, width: '65%' },
   captionWrap: {

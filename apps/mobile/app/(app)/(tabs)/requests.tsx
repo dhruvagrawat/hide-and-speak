@@ -50,7 +50,7 @@ export default function RequestsScreen() {
     setSending(false);
     if (res.ok) {
       setQuery('');
-      setFeedback({ ok: true, msg: 'Request sent! 🎉' });
+      setFeedback({ ok: true, msg: 'Request sent!' });
     } else {
       setFeedback({ ok: false, msg: res.error ?? 'Could not send request.' });
     }

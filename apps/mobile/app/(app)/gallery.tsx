@@ -14,6 +14,7 @@ import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Colors } from '@/constants/colors';
+import { Icon } from '@/components/Icon';
 import { listVault, deleteFromVault, VaultItem } from '@/lib/vault';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -63,7 +64,8 @@ export default function GalleryScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <Icon name="back" size={18} color={Colors.textSecondary} />
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Vault</Text>
         <View style={styles.backBtn} />
@@ -71,7 +73,9 @@ export default function GalleryScreen() {
 
       {!loading && items.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>🗝️</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="key" size={38} color={Colors.primaryLight} />
+          </View>
           <Text style={styles.emptyTitle}>Your vault is empty</Text>
           <Text style={styles.emptySubtitle}>
             Long-press any image in a chat and choose “Save to vault” to keep a
@@ -102,7 +106,8 @@ export default function GalleryScreen() {
             <Animated.View entering={FadeIn.duration(180)} style={styles.fsWrap}>
               <Image source={{ uri: viewer.uri }} style={styles.fsImage} contentFit="contain" />
               <TouchableOpacity style={styles.deleteBtn} onPress={() => confirmDelete(viewer)}>
-                <Text style={styles.deleteBtnText}>🗑  Delete</Text>
+                <Icon name="trash" size={16} color="#fff" />
+                <Text style={styles.deleteBtnText}>Delete</Text>
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -122,7 +127,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 12,
   },
-  backBtn: { width: 64 },
+  backBtn: { width: 72, flexDirection: 'row', alignItems: 'center', gap: 4 },
   backText: { color: Colors.textSecondary, fontSize: 15 },
   title: { color: Colors.text, fontSize: 18, fontWeight: '800' },
 
@@ -130,7 +135,11 @@ const styles = StyleSheet.create({
   tile: { width: TILE, height: TILE, borderRadius: 6, backgroundColor: Colors.surface },
 
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingHorizontal: 40 },
-  emptyIcon: { fontSize: 52 },
+  emptyIconWrap: {
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
   emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
 
@@ -139,6 +148,9 @@ const styles = StyleSheet.create({
   fsImage: { width: SCREEN_W, height: SCREEN_W },
   deleteBtn: {
     marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: Colors.error,
     paddingHorizontal: 24,
     paddingVertical: 12,
