@@ -1,22 +1,38 @@
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { AppState, AppStateStatus, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { BlurView } from 'expo-blur';
-import { Colors } from '@/constants/colors';
+import { useTheme, type Palette } from '@/lib/theme';
 
-const AppLockContext = createContext({ locked: false });
+interface AppLockValue {
+  locked: boolean;
+  /** Lock the app immediately (e.g. a "Lock now" button in Settings). */
+  lock: () => void;
+  /** Whether this device actually has biometrics/passcode enrolled. */
+  canAuthenticate: boolean;
+}
+
+const AppLockContext = createContext<AppLockValue>({ locked: false, lock: () => {}, canAuthenticate: false });
 
 export function useAppLocked() {
   return useContext(AppLockContext).locked;
 }
 
+export function useAppLock() {
+  return useContext(AppLockContext);
+}
+
 /**
  * Locks the whole app behind biometrics/device passcode whenever it comes
  * back from the background — same idea as WhatsApp's app lock. Wrap the
- * authenticated app shell with this; it renders a blocking overlay on top
- * of everything until the user re-authenticates.
+ * authenticated app shell with this; it renders a fully opaque (never
+ * see-through) blocking overlay on top of everything until the user
+ * re-authenticates, so chat content is never visible behind the lock —
+ * including in the OS app-switcher.
  */
 export function AppLockProvider({ children }: { children: ReactNode }) {
+  const Colors = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [locked, setLocked] = useState(false);
   const [canAuthenticate, setCanAuthenticate] = useState(true);
   const [authenticating, setAuthenticating] = useState(false);
@@ -54,6 +70,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       setLocked(false);
       return;
     }
+    if (authenticating) return;
     setAuthenticating(true);
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Unlock Hide & Speak',
@@ -64,12 +81,19 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     if (result.success) setLocked(false);
   };
 
+  // Auto-prompt the moment we're locked + back in the foreground, so the
+  // user lands straight on the biometric sheet instead of an extra tap.
+  useEffect(() => {
+    if (locked && canAuthenticate) authenticate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked, canAuthenticate]);
+
   return (
-    <AppLockContext.Provider value={{ locked }}>
+    <AppLockContext.Provider value={{ locked, lock: () => setLocked(true), canAuthenticate }}>
       {children}
       {locked && (
         <View style={styles.overlay}>
-          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={Colors.heroGradient} style={StyleSheet.absoluteFill} />
           <View style={styles.content}>
             <View style={styles.iconCircle}>
               <Text style={styles.icon}>🔒</Text>
@@ -97,7 +121,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: Palette) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -107,7 +131,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(13,13,13,0.6)',
+    backgroundColor: Colors.background,
   },
   content: { alignItems: 'center', paddingHorizontal: 32 },
   iconCircle: {

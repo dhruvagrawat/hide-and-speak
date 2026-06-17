@@ -38,6 +38,8 @@ interface CallContextValue {
   localStreamURL: string | null;
   remoteStreamURL: string | null;
   placeCall: (peer: CallPeer, mode: CallMode) => void;
+  /** Demo-only: ring a fake incoming call to test the incoming UI. */
+  simulateIncoming: (peer: CallPeer, mode: CallMode) => void;
   accept: () => void;
   end: () => void;
   toggleMute: () => void;
@@ -244,6 +246,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [joinCallChannel, startMedia],
   );
 
+  // ── Demo-only: simulate an incoming call ───
+  const simulateIncoming = useCallback((peer: CallPeer, mode: CallMode) => {
+    setCall({ id: `incoming__${Date.now()}`, mode, status: 'incoming', peer, isCaller: false });
+  }, []);
+
   // ── Accept an incoming call ────────────────
   const accept = useCallback(() => {
     setCall((c) => (c ? { ...c, status: 'connected' } : c));
@@ -337,6 +344,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         localStreamURL,
         remoteStreamURL,
         placeCall,
+        simulateIncoming,
         accept,
         end,
         toggleMute,

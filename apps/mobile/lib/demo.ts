@@ -1,4 +1,4 @@
-import { Conversation, Message, Profile } from './types';
+import { Conversation, FriendRequest, Message, Profile, StoryGroup } from './types';
 
 /**
  * Demo mode — set EXPO_PUBLIC_DEMO_MODE=true to skip Supabase auth
@@ -30,6 +30,76 @@ const OLD_FRIEND: Profile = {
   email: 'theo@demo.local',
   avatar_url: null, // demos the initials fallback too
 };
+
+// People who've sent you a request / you've sent one to / aren't friends yet.
+const REQUESTER: Profile = {
+  id: 'demo-req-1',
+  username: 'Priya',
+  email: 'priya@demo.local',
+  avatar_url: 'https://i.pravatar.cc/300?u=hidespeak-demo-priya',
+};
+
+const PENDING_PERSON: Profile = {
+  id: 'demo-req-2',
+  username: 'Sam',
+  email: 'sam@demo.local',
+  avatar_url: 'https://i.pravatar.cc/300?u=hidespeak-demo-sam',
+};
+
+export const DEMO_FRIENDS: Profile[] = [FRIEND, OLD_FRIEND];
+
+export const DEMO_INCOMING_REQUESTS: FriendRequest[] = [
+  {
+    id: 'demo-fr-in-1',
+    from_user: REQUESTER.id,
+    to_user: DEMO_USER_ID,
+    status: 'pending',
+    created_at: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+    profile: REQUESTER,
+  },
+];
+
+export const DEMO_OUTGOING_REQUESTS: FriendRequest[] = [
+  {
+    id: 'demo-fr-out-1',
+    from_user: DEMO_USER_ID,
+    to_user: PENDING_PERSON.id,
+    status: 'pending',
+    created_at: new Date(Date.now() - 26 * 3_600_000).toISOString(),
+    profile: PENDING_PERSON,
+  },
+];
+
+export const DEMO_STORY_GROUPS: StoryGroup[] = [
+  {
+    author: FRIEND,
+    seen: false,
+    stories: [
+      {
+        id: 'demo-story-1',
+        user_id: FRIEND.id,
+        image_url: 'https://picsum.photos/seed/hidespeak-story-maya/720/1280',
+        caption: 'Sunset on the trip 🌅',
+        created_at: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+        author: FRIEND,
+      },
+    ],
+  },
+  {
+    author: OLD_FRIEND,
+    seen: true,
+    stories: [
+      {
+        id: 'demo-story-2',
+        user_id: OLD_FRIEND.id,
+        image_url: 'https://picsum.photos/seed/hidespeak-story-theo/720/1280',
+        caption: null,
+        created_at: new Date(Date.now() - 9 * 3_600_000).toISOString(),
+        author: OLD_FRIEND,
+      },
+    ],
+  },
+];
 
 export const DEMO_CONVERSATIONS: Conversation[] = [
   {

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { IS_DEMO } from '@/lib/demo';
 import { useActiveConversationRef } from '@/lib/activeConversation';
+import { onDemoBanner } from '@/lib/notify';
 import { Colors } from '@/constants/colors';
 import { Message } from '@/lib/types';
 
@@ -30,6 +31,10 @@ export function NewMessageBanner() {
   const activeConversationRef = useActiveConversationRef();
   const currentUserIdRef = useRef<string | null>(null);
   const anim = useRef(new Animated.Value(0)).current;
+
+  // Demo-mode manual trigger (Settings → Demo & testing) reuses the same UI.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => onDemoBanner((p) => show(p)), []);
 
   useEffect(() => {
     if (IS_DEMO) return; // no live second device to demo this against

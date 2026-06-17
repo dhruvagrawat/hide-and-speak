@@ -4,6 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { IS_DEMO } from '@/lib/demo';
 import { AppLockProvider } from '@/lib/applock';
+import { ThemeProvider } from '@/lib/theme';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
@@ -34,12 +35,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (IS_DEMO) {
-      router.replace('/(app)');
+      router.replace('/(app)/(tabs)');
       return;
     }
     if (session === undefined) return; // still loading
     if (session) {
-      router.replace('/(app)');
+      router.replace('/(app)/(tabs)');
     } else {
       router.replace('/(auth)/login');
     }
@@ -61,10 +62,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <StatusBar style="light" />
-      {/* Only lock once there's actually something private to protect —
-          no point gating the login/register screens behind biometrics. */}
-      {isAuthenticated ? <AppLockProvider>{stack}</AppLockProvider> : stack}
+      <ThemeProvider>
+        <StatusBar style="light" />
+        {/* Only lock once there's actually something private to protect —
+            no point gating the login/register screens behind biometrics. */}
+        {isAuthenticated ? <AppLockProvider>{stack}</AppLockProvider> : stack}
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

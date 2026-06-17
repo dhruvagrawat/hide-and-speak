@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -8,7 +8,8 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
-import { Colors } from '@/constants/colors';
+import { useTheme, type Palette } from '@/lib/theme';
+import { PixelIcon } from '@/components/PixelIcon';
 import { Message } from '@/lib/types';
 import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
 import type { PendingImage } from '@/lib/types';
@@ -24,6 +25,8 @@ export default function ChatScreen() {
   const { id: conversationId, username } = useLocalSearchParams<{ id: string; username: string }>();
   const navigation = useNavigation();
   const activeConversationRef = useActiveConversationRef();
+  const Colors = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -62,21 +65,23 @@ export default function ChatScreen() {
       headerTitle: () => (
         <View>
           <Text style={styles.headerTitle}>{username ?? 'Chat'}</Text>
-          <Text style={styles.headerSubtitle}>{recipientOnline ? '🟢 Online' : 'Offline'}</Text>
+          <Text style={[styles.headerSubtitle, recipientOnline && { color: Colors.success }]}>
+            {recipientOnline ? 'Online' : 'Offline'}
+          </Text>
         </View>
       ),
       headerRight: () => (
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => startCall('voice')} hitSlop={8}>
-            <Text style={styles.headerActionIcon}>📞</Text>
+          <TouchableOpacity onPress={() => startCall('voice')} hitSlop={8} accessibilityLabel="Voice call">
+            <PixelIcon name="phone" size={18} color={Colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => startCall('video')} hitSlop={8}>
-            <Text style={styles.headerActionIcon}>🎥</Text>
+          <TouchableOpacity onPress={() => startCall('video')} hitSlop={8} accessibilityLabel="Video call">
+            <PixelIcon name="video" size={18} color={Colors.text} />
           </TouchableOpacity>
         </View>
       ),
     });
-  }, [navigation, username, recipientOnline, startCall]);
+  }, [navigation, username, recipientOnline, startCall, styles, Colors]);
 
   useEffect(() => {
     if (IS_DEMO) {
@@ -534,7 +539,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: Palette) => StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
   headerSubtitle: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
   headerActions: { flexDirection: 'row', gap: 18, paddingRight: 4 },

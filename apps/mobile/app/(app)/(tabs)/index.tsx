@@ -1,16 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Modal, TextInput, RefreshControl,
+  ActivityIndicator, Alert, Modal, RefreshControl,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
-import { Colors } from '@/constants/colors';
+import { useTheme, type Palette } from '@/lib/theme';
 import { Conversation, Profile } from '@/lib/types';
 import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
+import { useFriendRequests } from '@/lib/friends';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
 import { ChatListSkeleton } from '@/components/Skeleton';
@@ -25,6 +26,8 @@ function ConversationRow({
   index: number;
 }) {
   const online = useIsOnline(item.other_user?.id);
+  const Colors = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 35).duration(280)}>
@@ -58,18 +61,18 @@ function ConversationRow({
 }
 
 export default function ChatList() {
+  const Colors = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [ownProfile, setOwnProfile] = useState<Profile | null>(IS_DEMO ? DEMO_PROFILE : null);
 
-  // New chat modal
+  // New chat modal — pick from people you're already friends with.
+  const { friends } = useFriendRequests();
   const [showNewChat, setShowNewChat] = useState(false);
-  const [searchMode, setSearchMode] = useState<'email' | 'phone'>('email');
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchPhone, setSearchPhone] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [startingId, setStartingId] = useState<string | null>(null);
 
   const fetchConversations = useCallback(async (userId: string) => {
     // Step 1: get every conversation_id this user belongs to
@@ -174,54 +177,34 @@ export default function ChatList() {
     setRefreshing(false);
   };
 
-  const startNewChat = async () => {
+  // Start (or open) a chat with a friend. Friendship is required first —
+  // adding people happens on the Requests tab.
+  const startChatWith = async (friend: Profile) => {
     if (IS_DEMO) {
-      Alert.alert('Demo mode', 'Connect Supabase and turn off demo mode to start real conversations.');
       setShowNewChat(false);
+      const existing = DEMO_CONVERSATIONS.find((c) => c.other_user?.id === friend.id);
+      if (existing) {
+        router.push({ pathname: '/(app)/chat/[id]', params: { id: existing.id, username: friend.username } });
+      } else {
+        Alert.alert('Demo mode', 'Connect Supabase and turn off demo mode to start real conversations.');
+      }
       return;
     }
-    const query = searchMode === 'email' ? searchEmail.trim().toLowerCase() : searchPhone.trim();
-    if (!query) return;
-    setSearchLoading(true);
-
+    setStartingId(friend.id);
     try {
-      // Exact match only, by design — no contact upload, no browsing the
-      // user directory. You can only start a chat with someone whose exact
-      // email or phone number you already have.
-      const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('id, username, email')
-        .eq(searchMode, query)
-        .single();
-
-      if (profileErr || !profile) {
-        Alert.alert(
-          'User not found',
-          `No account found with that ${searchMode === 'email' ? 'email address' : 'phone number'}.`,
-        );
-        return;
-      }
-
-      // 2. Call the RPC — it handles duplicate-checking, creation, and
-      //    inserting both members atomically with security definer.
+      // RPC handles duplicate-checking, creation, and inserting both members
+      // atomically with security definer.
       const { data: convId, error: rpcErr } = await supabase
-        .rpc('create_conversation', { other_user_id: profile.id });
-
+        .rpc('create_conversation', { other_user_id: friend.id });
       if (rpcErr || !convId) {
         Alert.alert('Error', rpcErr?.message ?? 'Could not create conversation.');
         return;
       }
-
       setShowNewChat(false);
-      setSearchEmail('');
-      setSearchPhone('');
       if (currentUserId) fetchConversations(currentUserId);
-      router.push({
-        pathname: '/(app)/chat/[id]',
-        params: { id: convId, username: profile.username },
-      });
+      router.push({ pathname: '/(app)/chat/[id]', params: { id: convId, username: friend.username } });
     } finally {
-      setSearchLoading(false);
+      setStartingId(null);
     }
   };
 
@@ -255,7 +238,7 @@ export default function ChatList() {
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <ScalePressable onPress={() => router.push('/(app)/profile')}>
+          <ScalePressable onPress={() => router.push('/(app)/(tabs)/settings')}>
             <Avatar username={ownProfile?.username} avatarUrl={ownProfile?.avatar_url} size={36} />
           </ScalePressable>
           <Text style={styles.headerTitle}>Chats</Text>
@@ -291,71 +274,60 @@ export default function ChatList() {
         </LinearGradient>
       </ScalePressable>
 
-      {/* New chat modal */}
+      {/* New chat modal — pick a friend */}
       <Modal visible={showNewChat} transparent animationType="slide" onRequestClose={() => setShowNewChat(false)}>
         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowNewChat(false)} />
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
-          <Text style={styles.modalTitle}>New conversation</Text>
-          <Text style={styles.modalSubtitle}>
-            Exact email or phone only — no contacts are uploaded, you can&apos;t browse other users.
-          </Text>
+          <Text style={styles.modalTitle}>New chat</Text>
+          <Text style={styles.modalSubtitle}>Start a conversation with one of your friends.</Text>
 
-          <View style={styles.modalTabRow}>
-            <TouchableOpacity
-              style={[styles.modalTab, searchMode === 'email' && styles.modalTabActive]}
-              onPress={() => setSearchMode('email')}
-            >
-              <Text style={[styles.modalTabText, searchMode === 'email' && styles.modalTabTextActive]}>Email</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalTab, searchMode === 'phone' && styles.modalTabActive]}
-              onPress={() => setSearchMode('phone')}
-            >
-              <Text style={[styles.modalTabText, searchMode === 'phone' && styles.modalTabTextActive]}>Phone</Text>
-            </TouchableOpacity>
-          </View>
-
-          {searchMode === 'email' ? (
-            <TextInput
-              style={styles.modalInput}
-              placeholder="friend@example.com"
-              placeholderTextColor={Colors.textMuted}
-              value={searchEmail}
-              onChangeText={setSearchEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoFocus
-            />
+          {friends.length === 0 ? (
+            <View style={styles.noFriends}>
+              <Text style={styles.noFriendsText}>
+                You don&apos;t have any friends yet. Add someone from the Requests tab first.
+              </Text>
+              <TouchableOpacity
+                style={styles.modalBtn}
+                onPress={() => {
+                  setShowNewChat(false);
+                  router.push('/(app)/(tabs)/requests');
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalBtnText}>Go to Requests</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <TextInput
-              style={styles.modalInput}
-              placeholder="+919876543210"
-              placeholderTextColor={Colors.textMuted}
-              value={searchPhone}
-              onChangeText={setSearchPhone}
-              keyboardType="phone-pad"
-              autoFocus
+            <FlatList
+              data={friends}
+              keyExtractor={(f) => f.id}
+              style={styles.friendList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.friendRow}
+                  onPress={() => startChatWith(item)}
+                  disabled={!!startingId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Start chat with ${item.username}`}
+                >
+                  <Avatar username={item.username} avatarUrl={item.avatar_url} size={44} />
+                  <Text style={styles.friendName}>{item.username}</Text>
+                  {startingId === item.id
+                    ? <ActivityIndicator color={Colors.primaryLight} />
+                    : <Text style={styles.friendChevron}>›</Text>}
+                </TouchableOpacity>
+              )}
             />
           )}
-
-          <TouchableOpacity
-            style={[styles.modalBtn, searchLoading && styles.buttonDisabled]}
-            onPress={startNewChat}
-            disabled={searchLoading}
-          >
-            {searchLoading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.modalBtnText}>Start chat</Text>}
-          </TouchableOpacity>
         </View>
       </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
+const makeStyles = (Colors: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
   headerRow: {
     flexDirection: 'row',
@@ -448,32 +420,26 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   modalSubtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 16 },
-  modalTabRow: {
-    flexDirection: 'row', marginBottom: 14,
-    backgroundColor: Colors.inputBg, borderRadius: 12, padding: 4,
-  },
-  modalTab: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
-  modalTabActive: { backgroundColor: Colors.primary },
-  modalTabText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  modalTabTextActive: { color: '#fff' },
-  modalInput: {
-    backgroundColor: Colors.inputBg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    color: Colors.text,
-    fontSize: 16,
-    marginBottom: 16,
-  },
   modalBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     elevation: 6,
+    marginTop: 16,
   },
-  buttonDisabled: { opacity: 0.6 },
   modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  noFriends: { paddingVertical: 8 },
+  noFriendsText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+
+  friendList: { maxHeight: 360 },
+  friendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 11,
+  },
+  friendName: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '600' },
+  friendChevron: { color: Colors.textMuted, fontSize: 26, fontWeight: '300' },
 });
