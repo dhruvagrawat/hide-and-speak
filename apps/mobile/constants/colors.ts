@@ -33,4 +33,11 @@ export const Colors = {
   warning: '#FF9800',
 
   overlay: 'rgba(0,0,0,0.7)',
+
+  // Gradients (used with expo-linear-gradient)
+  sentBubbleGradient: ['#6B4FB0', '#4A3580'] as const,
+  fabGradient: ['#9B7FD4', '#7C5CBF'] as const,
+  heroGradient: ['#2A1F4A', '#0D0D0D'] as const,
+
+  shadow: '#000000',
 };

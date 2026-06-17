@@ -5,6 +5,8 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { Message } from '@/lib/types';
@@ -354,51 +356,107 @@ export default function ChatScreen() {
     }
   };
 
+  // ── Bubble inner content ───────────────────
+  // The text/image/voice body + the timestamp footer. Pulled out so both
+  // the gradient (mine) and flat (theirs) bubble shells can share it.
+  const BubbleContent = ({
+    item,
+    isMine,
+    time,
+    isOptimistic,
+  }: {
+    item: Message;
+    isMine: boolean;
+    time: string;
+    isOptimistic: boolean;
+  }) => {
+    const tintTime = isMine ? styles.timestampMine : styles.timestamp;
+    return (
+      <>
+        {item.message_type === 'image' && item.image_url ? (
+          <ImageMessage
+            imageUrl={item.image_url}
+            hidden={!!item.image_hidden}
+            filter={item.image_filter ?? null}
+            isMine={isMine}
+          />
+        ) : item.message_type === 'voice_note' && item.voice_note_url ? (
+          <VoiceNoteBubble uri={item.voice_note_url} isMine={isMine} />
+        ) : (
+          <Text style={styles.messageText}>{item.content}</Text>
+        )}
+
+        <View style={styles.timestampRow}>
+          <Text style={tintTime}>{time}</Text>
+          {isOptimistic && <Text style={styles.sendingDot}>  ·  sending…</Text>}
+        </View>
+      </>
+    );
+  };
+
   // ── Render a single message bubble ─────────
-  const renderMessage = ({ item }: { item: Message }) => {
+  // List is inverted (index 0 = newest, drawn at the bottom), so the
+  // chronologically-previous message is at index+1 and the next one at
+  // index-1. Grouping consecutive same-sender messages closer together
+  // (and only showing the avatar once per cluster) reads much less noisy
+  // than a full bubble treatment on every single message.
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMine = item.sender_id === currentUserId;
     const isOptimistic = item.id.startsWith('opt_');
+    const prev = messages[index + 1];
+    const next = messages[index - 1];
+    const isLastInGroup = !next || next.sender_id !== item.sender_id;
+    const isFirstInGroup = !prev || prev.sender_id !== item.sender_id;
     const time = new Date(item.created_at).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     });
 
     return (
-      <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
+      <Animated.View
+        entering={isOptimistic ? undefined : FadeInUp.duration(220)}
+        style={[
+          styles.bubbleRow,
+          isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs,
+          { marginTop: isFirstInGroup ? 10 : 2 },
+        ]}
+      >
         {!isMine && (
-          <View style={{ marginBottom: 2 }}>
-            <Avatar username={item.sender?.username} avatarUrl={item.sender?.avatar_url} size={28} />
+          <View style={styles.bubbleAvatarSlot}>
+            {isLastInGroup && (
+              <Avatar username={item.sender?.username} avatarUrl={item.sender?.avatar_url} size={28} />
+            )}
           </View>
         )}
 
-        <View style={[
-          styles.bubble,
-          isMine ? styles.bubbleMine : styles.bubbleTheirs,
-          isOptimistic && styles.bubbleOptimistic,
-        ]}>
-          {item.message_type === 'text' && (
-            <Text style={styles.messageText}>{item.content}</Text>
-          )}
-
-          {item.message_type === 'image' && item.image_url && (
-            <ImageMessage
-              imageUrl={item.image_url}
-              hidden={item.image_hidden}
-              filter={item.image_filter}
-              isMine={isMine}
-            />
-          )}
-
-          {item.message_type === 'voice_note' && item.voice_note_url && (
-            <VoiceNoteBubble uri={item.voice_note_url} isMine={isMine} />
-          )}
-
-          <View style={styles.timestampRow}>
-            <Text style={styles.timestamp}>{time}</Text>
-            {isOptimistic && <Text style={styles.sendingDot}>  ···</Text>}
+        {isMine ? (
+          <LinearGradient
+            colors={Colors.sentBubbleGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.bubble,
+              styles.bubbleMine,
+              isFirstInGroup && styles.bubbleMineFirst,
+              isLastInGroup && styles.bubbleMineLast,
+              isOptimistic && styles.bubbleOptimistic,
+            ]}
+          >
+            <BubbleContent item={item} isMine time={time} isOptimistic={isOptimistic} />
+          </LinearGradient>
+        ) : (
+          <View
+            style={[
+              styles.bubble,
+              styles.bubbleTheirs,
+              isFirstInGroup && styles.bubbleTheirsFirst,
+              isLastInGroup && styles.bubbleTheirsLast,
+            ]}
+          >
+            <BubbleContent item={item} isMine={false} time={time} isOptimistic={false} />
           </View>
-        </View>
-      </View>
+        )}
+      </Animated.View>
     );
   };
 
@@ -482,23 +540,39 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
+  bubbleAvatarSlot: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+
   bubble: {
     maxWidth: '78%',
-    borderRadius: 18,
+    borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingBottom: 6,
   },
   bubbleMine: {
-    backgroundColor: Colors.messageSent,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 20,
+    shadowColor: Colors.primaryDark,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
+  // Tighter inner corners between grouped bubbles so a run of messages
+  // reads as one cluster instead of separate balloons.
+  bubbleMineFirst: { borderTopRightRadius: 20 },
+  bubbleMineLast: { borderBottomRightRadius: 6 },
   bubbleTheirs: {
     backgroundColor: Colors.messageReceived,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  bubbleTheirsFirst: { borderTopLeftRadius: 20 },
+  bubbleTheirsLast: { borderBottomLeftRadius: 6 },
   bubbleOptimistic: {
     opacity: 0.75,
   },
@@ -508,7 +582,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
-
 
   timestampRow: {
     flexDirection: 'row',
@@ -520,8 +593,12 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 10,
   },
+  timestampMine: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 10,
+  },
   sendingDot: {
-    color: Colors.textMuted,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 10,
   },
 
@@ -529,33 +606,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.surface,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 8 : 10,
+    gap: 6,
+    backgroundColor: Colors.background,
   },
   input: {
     flex: 1,
     backgroundColor: Colors.inputBg,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 22,
+    borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 11,
+    paddingBottom: 11,
     color: Colors.text,
     fontSize: 15,
     maxHeight: 120,
   },
   sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
-  sendBtnDisabled: { opacity: 0.4 },
+  sendBtnDisabled: { opacity: 0.4, shadowOpacity: 0 },
   sendIcon: { color: '#fff', fontSize: 16, marginLeft: 2 },
 });

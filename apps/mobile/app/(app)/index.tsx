@@ -4,42 +4,55 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, RefreshControl,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { Conversation, Profile } from '@/lib/types';
 import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_CONVERSATIONS } from '@/lib/demo';
 import { useIsOnline } from '@/lib/presence';
 import { Avatar } from '@/components/Avatar';
+import { ScalePressable } from '@/components/AnimatedPressable';
 
-function ConversationRow({ item, formatTime }: { item: Conversation; formatTime: (iso: string) => string }) {
+function ConversationRow({
+  item,
+  formatTime,
+  index,
+}: {
+  item: Conversation;
+  formatTime: (iso: string) => string;
+  index: number;
+}) {
   const online = useIsOnline(item.other_user?.id);
 
   return (
-    <TouchableOpacity
-      style={styles.convItem}
-      onPress={() =>
-        router.push({
-          pathname: '/(app)/chat/[id]',
-          params: { id: item.id, username: item.other_user?.username ?? 'Unknown' },
-        })
-      }
-      activeOpacity={0.7}
-    >
-      {/* Avatar */}
-      <View>
-        <Avatar username={item.other_user?.username} avatarUrl={item.other_user?.avatar_url} size={48} />
-        {online && <View style={styles.onlineDot} />}
-      </View>
-      {/* Info */}
-      <View style={styles.convInfo}>
-        <Text style={styles.convName}>{item.other_user?.username ?? 'Unknown'}</Text>
-        <Text style={styles.convLast} numberOfLines={1}>{item.last_message}</Text>
-      </View>
-      {/* Time */}
-      <Text style={styles.convTime}>
-        {item.last_message_at ? formatTime(item.last_message_at) : ''}
-      </Text>
-    </TouchableOpacity>
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 35).duration(280)}>
+      <TouchableOpacity
+        style={styles.convItem}
+        onPress={() =>
+          router.push({
+            pathname: '/(app)/chat/[id]',
+            params: { id: item.id, username: item.other_user?.username ?? 'Unknown' },
+          })
+        }
+        activeOpacity={0.6}
+      >
+        {/* Avatar */}
+        <View style={styles.avatarRing}>
+          <Avatar username={item.other_user?.username} avatarUrl={item.other_user?.avatar_url} size={50} />
+          {online && <View style={styles.onlineDot} />}
+        </View>
+        {/* Info */}
+        <View style={styles.convInfo}>
+          <Text style={styles.convName}>{item.other_user?.username ?? 'Unknown'}</Text>
+          <Text style={styles.convLast} numberOfLines={1}>{item.last_message}</Text>
+        </View>
+        {/* Time */}
+        <Text style={styles.convTime}>
+          {item.last_message_at ? formatTime(item.last_message_at) : ''}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -246,19 +259,16 @@ export default function ChatList() {
 
   return (
     <View style={styles.container}>
-      {/* Header actions */}
+      {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.push('/(app)/profile')} activeOpacity={0.8}>
-            <Avatar username={ownProfile?.username} avatarUrl={ownProfile?.avatar_url} size={32} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutText}>{IS_DEMO ? '🧪 Demo' : 'Sign out'}</Text>
-          </TouchableOpacity>
+          <ScalePressable onPress={() => router.push('/(app)/profile')}>
+            <Avatar username={ownProfile?.username} avatarUrl={ownProfile?.avatar_url} size={36} />
+          </ScalePressable>
+          <Text style={styles.headerTitle}>Chats</Text>
         </View>
-        <TouchableOpacity style={styles.newChatBtn} onPress={() => setShowNewChat(true)}>
-          <Text style={styles.newChatIcon}>✎</Text>
-          <Text style={styles.newChatText}>New chat</Text>
+        <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
+          <Text style={styles.signOutText}>{IS_DEMO ? '🧪 Demo' : 'Sign out'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -266,17 +276,25 @@ export default function ChatList() {
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>💬</Text>
           <Text style={styles.emptyTitle}>No chats yet</Text>
-          <Text style={styles.emptySubtitle}>Tap "New chat" to start a conversation</Text>
+          <Text style={styles.emptySubtitle}>Tap the button below to start a conversation</Text>
         </View>
       ) : (
         <FlatList
           data={conversations}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-          renderItem={({ item }) => <ConversationRow item={item} formatTime={formatTime} />}
+          renderItem={({ item, index }) => <ConversationRow item={item} formatTime={formatTime} index={index} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={styles.listContent}
         />
       )}
+
+      {/* Floating "new chat" button */}
+      <ScalePressable style={styles.fab} onPress={() => setShowNewChat(true)}>
+        <LinearGradient colors={Colors.fabGradient} style={styles.fabGradient}>
+          <Text style={styles.fabIcon}>✎</Text>
+        </LinearGradient>
+      </ScalePressable>
 
       {/* New chat modal */}
       <Modal visible={showNewChat} transparent animationType="slide" onRequestClose={() => setShowNewChat(false)}>
@@ -353,45 +371,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, letterSpacing: 0.2 },
   signOutBtn: { padding: 6 },
   signOutText: { color: Colors.textSecondary, fontSize: 14 },
-  newChatBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  newChatIcon: { color: '#fff', fontSize: 14 },
-  newChatText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   emptyIcon: { fontSize: 52, marginBottom: 8 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
   emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 },
 
+  listContent: { paddingBottom: 100 },
   convItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    paddingVertical: 13,
+    gap: 13,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  avatarRing: {
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderRadius: 29,
+    padding: 2,
   },
   onlineDot: {
     position: 'absolute',
-    bottom: -1,
-    right: -1,
+    bottom: 0,
+    right: 0,
     width: 14,
     height: 14,
     borderRadius: 7,
@@ -399,12 +406,31 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.background,
   },
-  avatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   convInfo: { flex: 1 },
-  convName: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  convLast: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
+  convName: { fontSize: 16, fontWeight: '700', color: Colors.text },
+  convLast: { fontSize: 13, color: Colors.textSecondary, marginTop: 3 },
   convTime: { fontSize: 12, color: Colors.textMuted },
-  separator: { height: 1, backgroundColor: Colors.border, marginLeft: 76 },
+  separator: { height: 1, backgroundColor: Colors.border, marginLeft: 79 },
+
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 28,
+    borderRadius: 30,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  fabGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabIcon: { fontSize: 24, color: '#fff' },
 
   // Modal
   modalBackdrop: { flex: 1, backgroundColor: Colors.overlay },
