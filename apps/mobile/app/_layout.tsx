@@ -6,8 +6,8 @@ import { IS_DEMO } from '@/lib/demo';
 import { AppLockProvider } from '@/lib/applock';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
-import { Colors } from '@/constants/colors';
+import { StyleSheet } from 'react-native';
+import { BrandSplash } from '@/components/BrandSplash';
 
 export default function RootLayout() {
   // Demo mode skips the Supabase session check entirely and goes
@@ -46,11 +46,7 @@ export default function RootLayout() {
   }, [session]);
 
   if (session === undefined) {
-    return (
-      <View style={styles.splash}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-      </View>
-    );
+    return <BrandSplash />;
   }
 
   const isAuthenticated = IS_DEMO || !!session;
@@ -75,10 +71,4 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  splash: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 });

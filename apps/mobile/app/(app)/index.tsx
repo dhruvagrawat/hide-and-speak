@@ -13,6 +13,7 @@ import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_CONVERSATIONS } from '@/lib/d
 import { useIsOnline } from '@/lib/presence';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
+import { ChatListSkeleton } from '@/components/Skeleton';
 
 function ConversationRow({
   item,
@@ -249,14 +250,6 @@ export default function ChatList() {
     return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -272,7 +265,9 @@ export default function ChatList() {
         </TouchableOpacity>
       </View>
 
-      {conversations.length === 0 ? (
+      {loading ? (
+        <ChatListSkeleton />
+      ) : conversations.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>💬</Text>
           <Text style={styles.emptyTitle}>No chats yet</Text>
