@@ -31,16 +31,15 @@ import {
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Colors } from '@/constants/colors';
 import { ImageFilter, PendingImage } from '@/lib/types';
+import { saveToVault } from '@/lib/vault';
 
-// expo-media-library is loaded lazily (only when "Save to gallery" is
-// actually used) and wrapped in try/catch below. On some Expo Go builds
-// its native module isn't registered, which would otherwise crash this
-// whole file at import time and take down every screen that uses
-// ImageMessage. A custom dev client (`expo run:android` / EAS build)
-// always has it; Expo Go may not depending on the SDK version.
+// Images "save" into the app's own private vault (lib/vault.ts) — a
+// sandboxed folder inside the app, deliberately NOT the device's shared
+// photo gallery. This keeps sensitive images out of the system gallery,
+// other apps, and the photo picker. Works in plain Expo Go (no native
+// module needed) since it's just the app's document directory.
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const IMAGE_W = SCREEN_W * 0.62;
@@ -113,43 +112,27 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
   };
 
   const handleLongPress = () => {
-    const options = ['View full-screen', 'Save to gallery'];
-    if (revealed) options.push('Hide again');
-    options.push('Cancel');
-
     Alert.alert('Image options', undefined, [
       {
         text: 'View full-screen',
         onPress: () => setFullscreen(true),
       },
       {
-        text: 'Save to gallery',
-        onPress: () => saveToGallery(),
+        text: 'Save to vault',
+        onPress: () => saveToVaultLocal(),
       },
       ...(revealed ? [{ text: 'Hide again', onPress: () => setRevealedLocal(false) }] : []),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   };
 
-  const saveToGallery = async () => {
+  const saveToVaultLocal = async () => {
     setSaving(true);
     try {
-      const MediaLibrary = await import('expo-media-library');
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow access to your gallery to save images.');
-        return;
-      }
-      // Download to a temp file first (imageUrl is a remote URL)
-      const localUri = FileSystem.cacheDirectory + `img_${Date.now()}.jpg`;
-      const { uri } = await FileSystem.downloadAsync(imageUrl, localUri);
-      await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert('Saved!', 'Image saved to your gallery.');
+      await saveToVault(imageUrl);
+      Alert.alert('Saved to vault', 'A private copy is in your in-app vault — not your device gallery.');
     } catch {
-      Alert.alert(
-        'Save unavailable',
-        'Saving to gallery needs a custom dev build (not available in Expo Go on this SDK).',
-      );
+      Alert.alert('Save failed', 'Could not save this image to your vault. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -211,8 +194,8 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
             style={styles.fsImage}
             contentFit="contain"
           />
-          <TouchableOpacity style={styles.fsSaveBtn} onPress={saveToGallery}>
-            <Text style={styles.fsSaveBtnText}>⬇ Save to gallery</Text>
+          <TouchableOpacity style={styles.fsSaveBtn} onPress={saveToVaultLocal}>
+            <Text style={styles.fsSaveBtnText}>🗝️ Save to vault</Text>
           </TouchableOpacity>
         </Pressable>
       </Modal>

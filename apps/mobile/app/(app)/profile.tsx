@@ -65,6 +65,15 @@ export default function ProfileScreen() {
 
       <Text style={styles.username}>{profile.username}</Text>
       <Text style={styles.email}>{profile.email}</Text>
+
+      <TouchableOpacity style={styles.vaultRow} onPress={() => router.push('/(app)/gallery')} activeOpacity={0.8}>
+        <Text style={styles.vaultIcon}>🗝️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.vaultTitle}>Image vault</Text>
+          <Text style={styles.vaultHint}>Private in-app gallery — kept off your device gallery</Text>
+        </View>
+        <Text style={styles.vaultChevron}>›</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -84,4 +93,20 @@ const styles = StyleSheet.create({
   changeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   username: { color: Colors.text, fontSize: 22, fontWeight: '700', textAlign: 'center', marginTop: 24 },
   email: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 4 },
+
+  vaultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 36,
+  },
+  vaultIcon: { fontSize: 26 },
+  vaultTitle: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  vaultHint: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  vaultChevron: { color: Colors.textMuted, fontSize: 26, fontWeight: '300' },
 });

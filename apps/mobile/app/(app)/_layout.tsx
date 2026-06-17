@@ -19,10 +19,7 @@ export default function AppLayout() {
         >
           <Stack.Screen
             name="index"
-            options={{
-              title: 'Hide & Speak',
-              headerRight: () => null,
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="chat/[id]"
@@ -30,6 +27,10 @@ export default function AppLayout() {
           />
           <Stack.Screen
             name="profile"
+            options={{ headerShown: false, presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="gallery"
             options={{ headerShown: false, presentation: 'modal' }}
           />
         </Stack>
