@@ -16,14 +16,21 @@ app/
 │   ├── register.tsx
 │   └── otp.tsx                 Phone OTP verification step
 └── (app)/
-    ├── _layout.tsx              Wraps PresenceProvider + ActiveConversationProvider,
-    │                             mounts the NewMessageBanner
+    ├── _layout.tsx              Wraps Presence/ActiveConversation/Call providers,
+    │                             mounts NewMessageBanner + CallOverlay
     ├── index.tsx                 Chat list — online dots, new-chat-by-email modal
-    └── chat/[id].tsx               Realtime thread — text, hidden images, P2P toggle
+    ├── chat/[id].tsx               Realtime thread — text, hidden images, voice
+    │                                notes, P2P toggle, voice/video call buttons
+    ├── profile.tsx                  Avatar + entry to the in-app image vault
+    └── gallery.tsx                  In-app image vault (private, off the device gallery)
 
 components/
 ├── ImageMessage.tsx           Hidden/reveal image bubble + the send-options sheet
 │                               (visibility, filter, peer-to-peer toggle)
+├── VoiceNote.tsx               Voice-note recorder button + playback bubble
+├── BrandSplash.tsx             Animated branded loading splash
+├── Skeleton.tsx                Shimmer skeletons for loading lists
+├── CallOverlay.tsx             Full-screen voice/video call UI
 └── NewMessageBanner.tsx        Global "new message from X" banner (no content shown)
 
 lib/
@@ -34,6 +41,9 @@ lib/
 ├── presence.tsx                   Online/offline via Supabase Realtime Presence
 ├── activeConversation.tsx          Tracks which chat screen is open (for the banner)
 ├── applock.tsx                     Biometric/passcode lock on backgrounding
+├── vault.ts                        In-app image vault (private document directory)
+├── webrtc.ts                       react-native-webrtc loader — soft-fails in Expo Go
+├── calls.tsx                       Voice/video call state + Supabase signaling
 └── p2p.ts                          Peer-to-peer send — STUBBED, see below
 ```
 
@@ -100,12 +110,39 @@ existing server upload. The file has the implementation plan in its
 comments — signaling can reuse the same per-conversation Realtime channel
 already used for message inserts, no extra server needed.
 
+## In-app image vault
+
+"Save to vault" (long-press any image, or the full-screen viewer) keeps a
+copy inside the app's own private document directory — deliberately *not*
+the device's shared photo gallery, so sensitive images never show up in
+the system gallery, other apps, or the photo picker. Browse/delete them
+in the vault screen (`app/(app)/gallery.tsx`), reachable from Profile.
+See `lib/vault.ts`. Works in plain Expo Go (no native module needed).
+
+## Voice & video calls
+
+Tap 📞 / 🎥 in a chat header. Calls ring, connect and end end-to-end over
+a thin **Supabase Realtime** signaling layer (`lib/calls.tsx`) — a personal
+per-user channel carries the invite, then both sides join a per-call
+channel for accept/end and (when media is live) SDP/ICE exchange.
+
+The actual audio/video is carried by **`react-native-webrtc`**, a native
+module that needs a dev-client/EAS build — see `lib/webrtc.ts`. In Expo Go
+the native module is absent, so the call UI runs "signaling-only": it still
+rings/connects/ends and the in-call screen shows, but with a note that live
+media needs a real build. Run `npx expo prebuild` + `npx expo run:android`
+(the config plugin is already wired in `app.json`) and it lights up
+automatically — no code change. A production deployment should also add a
+TURN server to `ICE_SERVERS` for symmetric-NAT fallback.
+
 ## Known platform limits
 
 | Feature | Works in Expo Go? | Needs |
 |---|---|---|
 | Demo mode, presence, app lock | ✅ | nothing extra |
 | In-app new-message banner | ✅ (foreground only) | nothing extra |
+| In-app image vault | ✅ | nothing extra |
+| Call ring/connect/end (signaling) | ✅ | nothing extra |
+| Live call audio/video | ❌ | dev-client/EAS build + `react-native-webrtc` (+ TURN for production) |
 | Real push notifications | ❌ | dev-client/EAS build + Edge Function |
 | Peer-to-peer transfer | ❌ | dev-client/EAS build + `react-native-webrtc` |
-| Voice/video calling | ❌ | dev-client/EAS build + WebRTC + a TURN server |
