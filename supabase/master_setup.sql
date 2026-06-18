@@ -34,7 +34,9 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   username text unique not null,
-  email text not null,
+  -- Nullable: single-auth users sign up with EITHER email or phone, so a
+  -- phone-only account legitimately has no email (and vice-versa).
+  email text,
   phone text unique,
   avatar_url text,
   created_at timestamptz default now()
@@ -45,6 +47,8 @@ create table if not exists public.profiles (
 -- any missing columns explicitly (idempotent — safe to re-run).
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists avatar_url text;
+-- Phone-only accounts have no email, so email must be nullable.
+alter table public.profiles alter column email drop not null;
 do $$
 begin
   if not exists (
