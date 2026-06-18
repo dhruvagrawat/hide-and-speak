@@ -95,9 +95,11 @@ interface ImageMessageProps {
   hidden: boolean;
   filter: ImageFilter | null;
   isMine: boolean;
+  /** Delivered directly device-to-device (off-server) — shows a "Direct" tag. */
+  p2p?: boolean;
 }
 
-export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageProps) {
+export function ImageMessage({ imageUrl, hidden, filter, isMine, p2p }: ImageMessageProps) {
   const [revealed, setRevealedLocal] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -183,6 +185,14 @@ export function ImageMessage({ imageUrl, hidden, filter, isMine }: ImageMessageP
         {saving && (
           <View style={styles.savingOverlay}>
             <ActivityIndicator color="#fff" />
+          </View>
+        )}
+
+        {/* Sent directly, off-server */}
+        {p2p && !isHidden && (
+          <View style={styles.p2pTag}>
+            <Icon name="p2p" size={11} color="#fff" />
+            <Text style={styles.p2pTagText}>Direct</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -373,6 +383,19 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  p2pTag: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  p2pTagText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   revealBadge: {
     position: 'absolute',
     bottom: 0,

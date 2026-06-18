@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
-import { Colors } from '@/constants/colors';
+import { useTheme, type Palette } from '@/lib/theme';
 import { Avatar } from '@/components/Avatar';
+import { Icon, type IconName } from '@/components/Icon';
 import { ScalePressable } from '@/components/AnimatedPressable';
 import { useCalls } from '@/lib/calls';
 import { loadWebRTC } from '@/lib/webrtc';
@@ -16,6 +17,8 @@ import { loadWebRTC } from '@/lib/webrtc';
  * peer's avatar over the brand gradient and a note that media needs a build.
  */
 export function CallOverlay() {
+  const Colors = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const {
     call,
     mediaActive,
@@ -48,6 +51,32 @@ export function CallOverlay() {
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [call?.status]);
+
+  /** One call-control button. Inner so it shares styles/Colors via closure. */
+  const CallButton = ({
+    color,
+    iconColor = '#fff',
+    icon,
+    rotate,
+    label,
+    onPress,
+    big,
+  }: {
+    color: string;
+    iconColor?: string;
+    icon: IconName;
+    rotate?: number;
+    label: string;
+    onPress: () => void;
+    big?: boolean;
+  }) => (
+    <View style={styles.btnWrap}>
+      <ScalePressable onPress={onPress} style={[styles.btn, big && styles.btnBig, { backgroundColor: color }]}>
+        <Icon name={icon} size={big ? 30 : 24} color={iconColor} rotate={rotate} />
+      </ScalePressable>
+      <Text style={styles.btnLabel}>{label}</Text>
+    </View>
+  );
 
   if (!call) return null;
 
@@ -99,41 +128,41 @@ export function CallOverlay() {
         <Animated.View entering={FadeInUp.duration(400)} style={styles.controls}>
           {call.status === 'incoming' ? (
             <View style={styles.incomingRow}>
-              <CallButton color={Colors.error} icon="✕" label="Decline" onPress={end} />
-              <CallButton color={Colors.success} icon="✓" label="Accept" onPress={accept} />
+              <CallButton color={Colors.error} icon="callEnd" rotate={135} label="Decline" onPress={end} />
+              <CallButton color={Colors.success} icon="call" label="Accept" onPress={accept} />
             </View>
           ) : (
             <>
               <View style={styles.controlRow}>
                 <CallButton
                   color={muted ? Colors.text : 'rgba(255,255,255,0.18)'}
-                  textColor={muted ? Colors.background : '#fff'}
-                  icon={muted ? '🔇' : '🎙'}
+                  iconColor={muted ? Colors.background : '#fff'}
+                  icon={muted ? 'micOff' : 'mic'}
                   label={muted ? 'Unmute' : 'Mute'}
                   onPress={toggleMute}
                 />
                 {isVideo ? (
                   <CallButton
                     color="rgba(255,255,255,0.18)"
-                    icon={cameraOff ? '📷' : '🎥'}
+                    icon={cameraOff ? 'videoOff' : 'video'}
                     label={cameraOff ? 'Camera on' : 'Camera off'}
                     onPress={toggleCamera}
                   />
                 ) : (
                   <CallButton
                     color={speakerOn ? 'rgba(255,255,255,0.18)' : Colors.text}
-                    textColor={speakerOn ? '#fff' : Colors.background}
-                    icon="🔊"
+                    iconColor={speakerOn ? '#fff' : Colors.background}
+                    icon={speakerOn ? 'speaker' : 'speakerOff'}
                     label="Speaker"
                     onPress={toggleSpeaker}
                   />
                 )}
                 {isVideo && (
-                  <CallButton color="rgba(255,255,255,0.18)" icon="🔄" label="Flip" onPress={switchCamera} />
+                  <CallButton color="rgba(255,255,255,0.18)" icon="flipCamera" label="Flip" onPress={switchCamera} />
                 )}
               </View>
               <View style={styles.endRow}>
-                <CallButton color={Colors.error} icon="📞" label="End" onPress={end} big />
+                <CallButton color={Colors.error} icon="callEnd" rotate={135} label="End" onPress={end} big />
               </View>
             </>
           )}
@@ -143,41 +172,13 @@ export function CallOverlay() {
   );
 }
 
-function CallButton({
-  color,
-  textColor = '#fff',
-  icon,
-  label,
-  onPress,
-  big,
-}: {
-  color: string;
-  textColor?: string;
-  icon: string;
-  label: string;
-  onPress: () => void;
-  big?: boolean;
-}) {
-  return (
-    <View style={styles.btnWrap}>
-      <ScalePressable
-        onPress={onPress}
-        style={[styles.btn, big && styles.btnBig, { backgroundColor: color }]}
-      >
-        <Text style={[styles.btnIcon, big && styles.btnIconBig, { color: textColor }]}>{icon}</Text>
-      </ScalePressable>
-      <Text style={styles.btnLabel}>{label}</Text>
-    </View>
-  );
-}
-
 function formatDuration(s: number) {
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: Palette) => StyleSheet.create({
   fill: { flex: 1, backgroundColor: Colors.background },
   identity: { position: 'absolute', top: '20%', left: 0, right: 0, alignItems: 'center', gap: 14 },
   name: { color: '#fff', fontSize: 28, fontWeight: '800', marginTop: 6 },
@@ -212,7 +213,5 @@ const styles = StyleSheet.create({
   btnWrap: { alignItems: 'center', gap: 8 },
   btn: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
   btnBig: { width: 72, height: 72, borderRadius: 36 },
-  btnIcon: { fontSize: 24 },
-  btnIconBig: { fontSize: 30, transform: [{ rotate: '135deg' }] },
   btnLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
 });

@@ -35,6 +35,8 @@ export interface Message {
   voice_note_url: string | null;
   created_at: string;
   sender?: Profile;
+  /** True when the image was delivered directly device-to-device (P2P), off-server. */
+  via_p2p?: boolean;
 }
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';

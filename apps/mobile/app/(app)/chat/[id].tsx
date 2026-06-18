@@ -237,16 +237,32 @@ export default function ChatScreen() {
     if (!currentUserId) return;
     setSending(true);
 
-    // "Private" peer-to-peer mode: only actually skips the server if the
-    // recipient is online right now to receive it directly. Otherwise we
-    // silently fall back to the normal server-stored send below.
+    // The sender always sees their own image immediately (from the local URI).
+    const localImage = (viaP2P: boolean): Message => ({
+      id: `img_${Date.now()}`,
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: null,
+      message_type: 'image',
+      image_url: pending.uri,
+      image_hidden: pending.hidden,
+      image_filter: pending.filter ?? null,
+      voice_note_url: null,
+      created_at: new Date().toISOString(),
+      via_p2p: viaP2P,
+    });
+
+    // "Private" peer-to-peer mode: skip the server entirely and hand the
+    // image straight to the recipient — but only if they're online now to
+    // receive it. Otherwise fall back to the normal server-stored send.
     if (pending.p2p && recipientId && recipientOnline) {
       const { delivered } = await sendImageP2P({ conversationId, recipientId, uri: pending.uri });
       if (delivered) {
+        setMessages((prev) => [localImage(true), ...prev]);
         setSending(false);
         return;
       }
-      // Stubbed for now (needs a dev-client build — see lib/p2p.ts) — falls
+      // Not delivered (real WebRTC not wired yet — see lib/p2p.ts) — fall
       // through to the normal upload path below instead of failing silently.
     } else if (pending.p2p && (!recipientId || !recipientOnline)) {
       Alert.alert(
@@ -257,21 +273,7 @@ export default function ChatScreen() {
 
     if (IS_DEMO) {
       // Show the picked image straight from its local URI — no upload.
-      setMessages((prev) => [
-        {
-          id: `demo_img_${Date.now()}`,
-          conversation_id: conversationId,
-          sender_id: currentUserId,
-          content: null,
-          message_type: 'image',
-          image_url: pending.uri,
-          image_hidden: pending.hidden,
-          image_filter: pending.filter ?? null,
-          voice_note_url: null,
-          created_at: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
+      setMessages((prev) => [localImage(false), ...prev]);
       setSending(false);
       return;
     }
@@ -413,6 +415,7 @@ export default function ChatScreen() {
             hidden={!!item.image_hidden}
             filter={item.image_filter ?? null}
             isMine={isMine}
+            p2p={!!item.via_p2p}
           />
         ) : item.message_type === 'voice_note' && item.voice_note_url ? (
           <VoiceNoteBubble uri={item.voice_note_url} isMine={isMine} />
