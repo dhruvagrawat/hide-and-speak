@@ -8,9 +8,8 @@ import { ThemeProvider } from '@/lib/theme';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { BrandSplash } from '@/components/BrandSplash';
-import { ensureNotificationPermissions } from '@/lib/notifications';
+import { ensureNotificationPermissions, addNotificationTapHandler } from '@/lib/notifications';
 
 export default function RootLayout() {
   // Demo mode skips the Supabase session check entirely and goes
@@ -49,18 +48,12 @@ export default function RootLayout() {
   }, [session]);
 
   // Notifications: ask once on launch, and open the right chat when a
-  // "new message" notification is tapped.
+  // "new message" notification is tapped. Both are safe no-ops in Expo Go.
   useEffect(() => {
     ensureNotificationPermissions();
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as
-        | { type?: string; conversationId?: string }
-        | undefined;
-      if (data?.type === 'message' && data.conversationId) {
-        router.push({ pathname: '/(app)/chat/[id]', params: { id: data.conversationId } });
-      }
+    return addNotificationTapHandler((conversationId) => {
+      router.push({ pathname: '/(app)/chat/[id]', params: { id: conversationId } });
     });
-    return () => sub.remove();
   }, []);
 
   if (session === undefined) {
