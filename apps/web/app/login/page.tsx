@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IS_DEMO } from '@/lib/demo';
+import { LogoMark, Wordmark } from '@/components/Logo';
+import { Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,10 +44,8 @@ export default function LoginPage() {
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#7C5CBF] text-2xl text-white">
-            ✦
-          </span>
-          <h1 className="text-2xl font-semibold tracking-wide text-[#F5F5F5]">Hide &amp; Speak</h1>
+          <LogoMark size={64} className="mb-3" />
+          <Wordmark className="text-2xl" />
           <p className="mt-1 text-sm text-[#9E9E9E]">Private. Secure. Just for you.</p>
         </div>
 
@@ -54,8 +54,9 @@ export default function LoginPage() {
           className="rounded-2xl border border-[#2A2A2A] bg-[#181818] p-6"
         >
           {IS_DEMO && (
-            <p className="mb-4 rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-3 py-2 text-xs text-[#9E9E9E]">
-              🧪 Demo mode — any email/password will drop you straight into the demo chats.
+            <p className="mb-4 flex items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-3 py-2 text-xs text-[#9E9E9E]">
+              <Sparkles size={14} className="shrink-0 text-[#9B7FD4]" />
+              Demo mode — any email/password will drop you straight into the demo chats.
             </p>
           )}
 

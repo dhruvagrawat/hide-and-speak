@@ -7,6 +7,7 @@
  */
 
 import { useRef, useState } from 'react';
+import { EyeOff, Eye, Lock, Paperclip, Send, ImageIcon, Droplets, Grid3x3, Moon, type LucideIcon } from 'lucide-react';
 import { ImageFilter, PendingImage } from '@/lib/types';
 
 const FILTER_OVERLAY_CLASS: Record<ImageFilter, string> = {
@@ -49,7 +50,7 @@ export function ImageMessage({ imageUrl, hidden, filter }: ImageMessageProps) {
         {isHidden && (
           <>
             <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-black/55 py-2 text-xs font-semibold text-white">
-              🔒 Tap to reveal
+              <EyeOff size={13} /> Tap to reveal
             </div>
             {filter && (
               <span className="absolute top-2 right-2 rounded-md bg-black/70 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">
@@ -73,10 +74,10 @@ export function ImageMessage({ imageUrl, hidden, filter }: ImageMessageProps) {
   );
 }
 
-const FILTERS: { id: ImageFilter; label: string; icon: string }[] = [
-  { id: 'blur', label: 'Blur', icon: '🌫' },
-  { id: 'pixelate', label: 'Pixelate', icon: '▦' },
-  { id: 'noir', label: 'Noir', icon: '◑' },
+const FILTERS: { id: ImageFilter; label: string; Icon: LucideIcon }[] = [
+  { id: 'blur', label: 'Blur', Icon: Droplets },
+  { id: 'pixelate', label: 'Pixelate', Icon: Grid3x3 },
+  { id: 'noir', label: 'Noir', Icon: Moon },
 ];
 
 interface ImagePickerButtonProps {
@@ -120,10 +121,10 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-[#9E9E9E] transition-colors hover:text-[#F5F5F5]"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#9B7FD4] transition-colors hover:text-[#F5F5F5]"
         aria-label="Attach image"
       >
-        📎
+        <Paperclip size={20} />
       </button>
 
       {pending && (
@@ -145,7 +146,7 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
               )}
               {hidden && (
                 <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-black/55 py-1.5 text-xs font-medium text-white">
-                  🔒 Hidden
+                  <Lock size={12} /> Hidden
                 </div>
               )}
             </div>
@@ -157,24 +158,24 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
               <button
                 type="button"
                 onClick={() => setHidden(false)}
-                className={`flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors ${
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold transition-colors ${
                   !hidden
                     ? 'border-[#7C5CBF] bg-[#7C5CBF] text-white'
                     : 'border-[#2A2A2A] bg-[#1A1A1A] text-[#9E9E9E]'
                 }`}
               >
-                👁 Visible
+                <Eye size={16} /> Visible
               </button>
               <button
                 type="button"
                 onClick={() => setHidden(true)}
-                className={`flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors ${
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold transition-colors ${
                   hidden
                     ? 'border-[#FF6B8A] bg-[#FF6B8A] text-white'
                     : 'border-[#2A2A2A] bg-[#1A1A1A] text-[#9E9E9E]'
                 }`}
               >
-                🔒 Hidden
+                <Lock size={15} /> Hidden
               </button>
             </div>
 
@@ -195,7 +196,7 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
                           : 'border-[#2A2A2A] bg-[#1A1A1A] text-[#9E9E9E]'
                       }`}
                     >
-                      <div className="text-lg">{f.icon}</div>
+                      <f.Icon size={20} className="mx-auto" />
                       <div className="mt-1 text-xs font-semibold">{f.label}</div>
                     </button>
                   ))}
@@ -206,9 +207,9 @@ export function ImagePickerButton({ onImageReady }: ImagePickerButtonProps) {
             <button
               type="button"
               onClick={handleSend}
-              className="w-full rounded-xl bg-[#7C5CBF] py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#5A3F9A]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#7C5CBF] py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#5A3F9A]"
             >
-              {hidden ? '🔒 Send hidden' : '📤 Send image'}
+              {hidden ? <><Lock size={16} /> Send hidden</> : <><ImageIcon size={16} /> Send image</>}
             </button>
           </div>
         </div>

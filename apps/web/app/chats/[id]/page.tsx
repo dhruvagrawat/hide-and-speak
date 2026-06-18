@@ -9,6 +9,7 @@ import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/
 import { useIsOnline } from '@/lib/presence';
 import { Avatar } from '@/components/Avatar';
 import { VoiceRecorderButton, VoiceNoteBubble } from '@/components/VoiceNote';
+import { ArrowLeft, Send } from 'lucide-react';
 
 export default function ChatThreadPage() {
   const params = useParams<{ id: string }>();
@@ -289,12 +290,16 @@ export default function ChatThreadPage() {
   return (
     <main className="flex flex-1 flex-col">
       <div className="flex items-center gap-3 border-b border-[#2A2A2A] px-6 py-4">
-        <button onClick={() => router.push('/chats')} className="text-[#9E9E9E] hover:text-[#F5F5F5]">
-          ←
+        <button onClick={() => router.push('/chats')} aria-label="Back" className="text-[#9E9E9E] hover:text-[#F5F5F5]">
+          <ArrowLeft size={22} />
         </button>
+        <Avatar username={otherUser?.username} avatarUrl={otherUser?.avatar_url} size={36} />
         <div>
           <h1 className="text-base font-semibold text-[#F5F5F5]">{otherUser?.username ?? 'Chat'}</h1>
-          <p className="text-xs text-[#9E9E9E]">{otherUserOnline ? '🟢 Online' : 'Offline'}</p>
+          <p className={`flex items-center gap-1.5 text-xs ${otherUserOnline ? 'text-[#4CAF50]' : 'text-[#9E9E9E]'}`}>
+            {otherUserOnline && <span className="h-1.5 w-1.5 rounded-full bg-[#4CAF50]" />}
+            {otherUserOnline ? 'Online' : 'Offline'}
+          </p>
         </div>
       </div>
 
@@ -350,9 +355,10 @@ export default function ChatThreadPage() {
         <button
           onClick={sendText}
           disabled={!text.trim() || sending}
+          aria-label="Send message"
           className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#7C5CBF] text-white transition-colors hover:bg-[#5A3F9A] disabled:opacity-40"
         >
-          ➤
+          <Send size={18} />
         </button>
       </div>
     </main>

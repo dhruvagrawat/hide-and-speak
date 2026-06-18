@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IS_DEMO } from '@/lib/demo';
+import { LogoMark } from '@/components/Logo';
+import { Sparkles } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -42,9 +44,7 @@ export default function RegisterPage() {
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#7C5CBF] text-2xl text-white">
-            ✦
-          </span>
+          <LogoMark size={64} className="mb-3" />
           <h1 className="text-2xl font-semibold tracking-wide text-[#F5F5F5]">Create account</h1>
           <p className="mt-1 text-sm text-[#9E9E9E]">Join Hide &amp; Speak</p>
         </div>
@@ -61,8 +61,9 @@ export default function RegisterPage() {
           ) : (
             <form onSubmit={handleSubmit}>
               {IS_DEMO && (
-                <p className="mb-4 rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-3 py-2 text-xs text-[#9E9E9E]">
-                  🧪 Demo mode — registering just drops you into the demo chats.
+                <p className="mb-4 flex items-center gap-2 rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-3 py-2 text-xs text-[#9E9E9E]">
+                  <Sparkles size={14} className="shrink-0 text-[#9B7FD4]" />
+                  Demo mode — registering just drops you into the demo chats.
                 </p>
               )}
 

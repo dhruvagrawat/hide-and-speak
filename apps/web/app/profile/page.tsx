@@ -7,6 +7,7 @@ import { Avatar } from '@/components/Avatar';
 import { uploadAvatar } from '@/lib/avatar';
 import { IS_DEMO, DEMO_PROFILE } from '@/lib/demo';
 import { Profile } from '@/lib/types';
+import { ArrowLeft, Camera } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -56,9 +57,9 @@ export default function ProfilePage() {
     <main className="flex flex-1 flex-col items-center px-6 py-10">
       <button
         onClick={() => router.push('/chats')}
-        className="self-start text-sm text-[#9E9E9E] hover:text-[#F5F5F5]"
+        className="flex items-center gap-1.5 self-start text-sm text-[#9E9E9E] hover:text-[#F5F5F5]"
       >
-        ← Back
+        <ArrowLeft size={16} /> Back
       </button>
 
       <div className="mt-8 flex flex-col items-center gap-4">
@@ -73,9 +74,9 @@ export default function ProfilePage() {
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="rounded-full bg-[#7C5CBF] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#5A3F9A] disabled:opacity-60"
+          className="flex items-center gap-2 rounded-full bg-[#7C5CBF] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#5A3F9A] disabled:opacity-60"
         >
-          {uploading ? 'Uploading…' : '📷 Change photo'}
+          {uploading ? 'Uploading…' : <><Camera size={15} /> Change photo</>}
         </button>
       </div>
 

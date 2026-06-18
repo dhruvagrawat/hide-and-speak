@@ -1,18 +1,20 @@
 import Link from 'next/link';
+import { EyeOff, Zap, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { LogoMark } from '@/components/Logo';
 
-const FEATURES = [
+const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   {
-    icon: '🙈',
+    icon: EyeOff,
     title: 'Hidden image messages',
     body: 'Send a photo locked behind a blur, pixelate, or noir filter. The receiver taps to reveal it — never auto-saved to the gallery.',
   },
   {
-    icon: '⚡',
+    icon: Zap,
     title: 'Real-time messaging',
     body: 'Messages appear instantly on both sides, powered by Supabase Realtime — no polling, no delay.',
   },
   {
-    icon: '🔒',
+    icon: ShieldCheck,
     title: 'Self-hosted, end to end',
     body: 'Runs entirely on your own Supabase project. No third-party servers, no telemetry, your data stays yours.',
   },
@@ -23,10 +25,8 @@ export default function Home() {
     <main className="flex flex-1 flex-col">
       {/* Nav */}
       <header className="flex items-center justify-between px-6 py-5 sm:px-12">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7C5CBF] text-sm text-white">
-            ✦
-          </span>
+        <div className="flex items-center gap-2.5">
+          <LogoMark size={32} />
           <span className="text-base font-semibold tracking-wide text-[#F5F5F5]">
             Hide &amp; Speak
           </span>
@@ -72,16 +72,21 @@ export default function Home() {
       {/* Features */}
       <section id="features" className="px-6 pb-24 sm:px-12">
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="rounded-2xl border border-[#2A2A2A] bg-[#181818] p-6 transition-colors hover:border-[#7C5CBF]/50"
-            >
-              <span className="text-2xl">{f.icon}</span>
-              <h3 className="mt-4 text-lg font-semibold text-[#F5F5F5]">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#9E9E9E]">{f.body}</p>
-            </div>
-          ))}
+          {FEATURES.map((f) => {
+            const FeatureIcon = f.icon;
+            return (
+              <div
+                key={f.title}
+                className="rounded-2xl border border-[#2A2A2A] bg-[#181818] p-6 transition-colors hover:border-[#7C5CBF]/50"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#7C5CBF]/15">
+                  <FeatureIcon size={22} className="text-[#9B7FD4]" />
+                </span>
+                <h3 className="mt-4 text-lg font-semibold text-[#F5F5F5]">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#9E9E9E]">{f.body}</p>
+              </div>
+            );
+          })}
         </div>
       </section>
 

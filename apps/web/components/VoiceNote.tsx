@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Mic, Send, Play, Pause } from 'lucide-react';
 
 function formatSeconds(total: number) {
   const m = Math.floor(total / 60);
@@ -73,9 +74,10 @@ export function VoiceRecorderButton({ onRecorded }: VoiceRecorderButtonProps) {
         </button>
         <button
           onClick={send}
+          aria-label="Send voice note"
           className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7C5CBF] text-white"
         >
-          ➤
+          <Send size={15} />
         </button>
       </div>
     );
@@ -84,10 +86,10 @@ export function VoiceRecorderButton({ onRecorded }: VoiceRecorderButtonProps) {
   return (
     <button
       onClick={start}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-[#9E9E9E] transition-colors hover:text-[#F5F5F5]"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#9B7FD4] transition-colors hover:text-[#F5F5F5]"
       aria-label="Record voice note"
     >
-      🎙
+      <Mic size={20} />
     </button>
   );
 }
@@ -123,9 +125,10 @@ export function VoiceNoteBubble({ uri }: VoiceNoteBubbleProps) {
       />
       <button
         onClick={toggle}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#9B7FD4] text-xs text-[#0D0D0D]"
+        aria-label={playing ? 'Pause' : 'Play'}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#9B7FD4] text-[#0D0D0D]"
       >
-        {playing ? '⏸' : '▶'}
+        {playing ? <Pause size={14} /> : <Play size={14} />}
       </button>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/15">
         <div className="h-full rounded-full bg-[#9B7FD4]" style={{ width: `${progress * 100}%` }} />
