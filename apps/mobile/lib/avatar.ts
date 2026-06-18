@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabase';
+import { uploadFileToStorage, imageContentType } from './upload';
 
 /**
  * Opens the system image picker, uploads the result to the public
@@ -21,16 +22,10 @@ export async function pickAndUploadAvatar(userId: string): Promise<string | null
   if (result.canceled || !result.assets[0]) return null;
 
   const uri = result.assets[0].uri;
-  const ext = uri.split('.').pop() ?? 'jpg';
+  const ext = (uri.split('.').pop() ?? 'jpg').toLowerCase();
   const path = `${userId}/avatar.${ext}`;
 
-  const formData = new FormData();
-  formData.append('file', { uri, name: path, type: `image/${ext}` } as unknown as Blob);
-
-  const { error: uploadError } = await supabase.storage
-    .from('avatars')
-    .upload(path, formData, { upsert: true });
-  if (uploadError) throw uploadError;
+  await uploadFileToStorage('avatars', path, uri, imageContentType(ext), { upsert: true });
 
   const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
   // Cache-bust so the new photo shows immediately instead of a stale CDN copy.

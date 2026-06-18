@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -77,7 +78,7 @@ export default function SettingsScreen() {
   const [draftName, setDraftName] = useState('');
   const [savingName, setSavingName] = useState(false);
 
-  const { lock, canAuthenticate } = useAppLock();
+  const { lock, canAuthenticate, enabled: appLockEnabled, setEnabled: setAppLockEnabled } = useAppLock();
   const { simulateIncoming } = useCalls();
 
   useEffect(() => {
@@ -321,12 +322,30 @@ export default function SettingsScreen() {
       <Text style={styles.sectionLabel}>Privacy &amp; security</Text>
       <View style={styles.group}>
         <Row
-          icon="lock"
-          title="Lock now"
-          subtitle={canAuthenticate ? 'Lock with fingerprint / passcode' : 'No device lock set up'}
-          onPress={lockNow}
+          icon="eye"
+          title="App lock"
+          subtitle={
+            appLockEnabled
+              ? 'Locks after ~1 min away · fingerprint to re-enter'
+              : 'Off — the app never auto-locks'
+          }
+          right={
+            <Switch
+              value={appLockEnabled}
+              onValueChange={setAppLockEnabled}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor="#fff"
+            />
+          }
         />
-        <Row icon="eye" title="App lock" subtitle="Auto-locks with your fingerprint when you leave the app" />
+        {appLockEnabled && (
+          <Row
+            icon="lock"
+            title="Lock now"
+            subtitle={canAuthenticate ? 'Lock with fingerprint / passcode' : 'No device lock set up'}
+            onPress={lockNow}
+          />
+        )}
       </View>
 
       {/* Demo & testing — only in demo mode */}

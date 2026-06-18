@@ -25,6 +25,7 @@ import { useTheme, type Palette } from '@/lib/theme';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
 import { Icon } from '@/components/Icon';
+import { uploadFileToStorage, imageContentType } from '@/lib/upload';
 import { IS_DEMO, DEMO_USER_ID, DEMO_PROFILE, DEMO_STORY_GROUPS } from '@/lib/demo';
 import { Story, StoryGroup, Profile } from '@/lib/types';
 
@@ -134,12 +135,9 @@ export default function StatusScreen() {
 
     setBusy(true);
     try {
-      const ext = uri.split('.').pop() ?? 'jpg';
+      const ext = (uri.split('.').pop() ?? 'jpg').toLowerCase();
       const path = `${me.id}/${Date.now()}.${ext}`;
-      const formData = new FormData();
-      formData.append('file', { uri, name: path, type: `image/${ext}` } as unknown as Blob);
-      const { error: upErr } = await supabase.storage.from('stories').upload(path, formData, { upsert: true });
-      if (upErr) throw upErr;
+      await uploadFileToStorage('stories', path, uri, imageContentType(ext), { upsert: true });
       const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path);
       const { error: insErr } = await supabase
         .from('stories')

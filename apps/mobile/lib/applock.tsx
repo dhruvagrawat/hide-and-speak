@@ -1,9 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { AppState, AppStateStatus, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme, type Palette } from '@/lib/theme';
 import { Icon } from '@/components/Icon';
+
+/** Quick trips out of the app (e.g. the image picker) within this window
+ *  don't require re-auth on return — avoids the lock firing constantly. */
+const GRACE_MS = 60_000;
+const STORAGE_KEY = 'hs:applock:enabled';
 
 interface AppLockValue {
   locked: boolean;
@@ -11,9 +17,18 @@ interface AppLockValue {
   lock: () => void;
   /** Whether this device actually has biometrics/passcode enrolled. */
   canAuthenticate: boolean;
+  /** User toggle — off = never auto-lock. */
+  enabled: boolean;
+  setEnabled: (value: boolean) => void;
 }
 
-const AppLockContext = createContext<AppLockValue>({ locked: false, lock: () => {}, canAuthenticate: false });
+const AppLockContext = createContext<AppLockValue>({
+  locked: false,
+  lock: () => {},
+  canAuthenticate: false,
+  enabled: true,
+  setEnabled: () => {},
+});
 
 export function useAppLocked() {
   return useContext(AppLockContext).locked;
@@ -37,34 +52,27 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [canAuthenticate, setCanAuthenticate] = useState(true);
   const [authenticating, setAuthenticating] = useState(false);
+  const [enabled, setEnabledState] = useState(true);
   const appState = useRef(AppState.currentState);
+  const backgroundedAt = useRef<number | null>(null);
 
   useEffect(() => {
     LocalAuthentication.hasHardwareAsync().then(async (hasHardware) => {
       const enrolled = hasHardware && (await LocalAuthentication.isEnrolledAsync());
       setCanAuthenticate(enrolled);
     });
-  }, []);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
-      const wasActive = appState.current === 'active';
-      const goingBackground = next !== 'active';
-      const cameBackToForeground = appState.current.match(/inactive|background/) && next === 'active';
-
-      if (wasActive && goingBackground) {
-        setLocked(true);
-      }
-      if (cameBackToForeground) {
-        // setLocked(true) already happened on the way out — nothing else to do,
-        // the overlay below stays up until authenticate() succeeds.
-      }
-      appState.current = next;
+    AsyncStorage.getItem(STORAGE_KEY).then((v) => {
+      if (v !== null) setEnabledState(v === 'true');
     });
-    return () => subscription.remove();
   }, []);
 
-  const authenticate = async () => {
+  const setEnabled = useCallback((value: boolean) => {
+    setEnabledState(value);
+    AsyncStorage.setItem(STORAGE_KEY, String(value)).catch(() => {});
+    if (!value) setLocked(false); // turning it off clears any active lock
+  }, []);
+
+  const authenticate = useCallback(async () => {
     if (!canAuthenticate) {
       // No biometrics/passcode set up on this device — can't enforce a lock,
       // so don't trap the user behind a screen they can never get past.
@@ -80,17 +88,36 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     });
     setAuthenticating(false);
     if (result.success) setLocked(false);
-  };
+  }, [canAuthenticate, authenticating]);
 
-  // Auto-prompt the moment we're locked + back in the foreground, so the
-  // user lands straight on the biometric sheet instead of an extra tap.
   useEffect(() => {
-    if (locked && canAuthenticate) authenticate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locked, canAuthenticate]);
+    const subscription = AppState.addEventListener('change', (next: AppStateStatus) => {
+      const wasActive = appState.current === 'active';
+      const goingBackground = next !== 'active';
+      const cameBack = !!appState.current.match(/inactive|background/) && next === 'active';
+
+      if (wasActive && goingBackground) {
+        backgroundedAt.current = Date.now();
+        // Cover content in the app-switcher immediately (no prompt yet).
+        if (enabled && canAuthenticate) setLocked(true);
+      }
+      if (cameBack) {
+        const away = backgroundedAt.current ? Date.now() - backgroundedAt.current : Infinity;
+        if (!enabled || !canAuthenticate || away < GRACE_MS) {
+          // Disabled, or a quick trip (image picker, etc.) — unlock silently.
+          setLocked(false);
+        } else {
+          // Been away a while → require re-auth.
+          authenticate();
+        }
+      }
+      appState.current = next;
+    });
+    return () => subscription.remove();
+  }, [enabled, canAuthenticate, authenticate]);
 
   return (
-    <AppLockContext.Provider value={{ locked, lock: () => setLocked(true), canAuthenticate }}>
+    <AppLockContext.Provider value={{ locked, lock: () => setLocked(true), canAuthenticate, enabled, setEnabled }}>
       {children}
       {locked && (
         <View style={styles.overlay}>

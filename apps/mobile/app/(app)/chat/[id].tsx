@@ -18,6 +18,7 @@ import { useIsOnline } from '@/lib/presence';
 import { useActiveConversationRef } from '@/lib/activeConversation';
 import { useCalls } from '@/lib/calls';
 import { sendImageP2P } from '@/lib/p2p';
+import { uploadFileToStorage, imageContentType } from '@/lib/upload';
 import { Avatar } from '@/components/Avatar';
 import { VoiceRecorderButton, VoiceNoteBubble } from '@/components/VoiceNote';
 
@@ -279,28 +280,22 @@ export default function ChatScreen() {
     }
 
     try {
-      const ext = pending.uri.split('.').pop() ?? 'jpg';
+      const ext = (pending.uri.split('.').pop() ?? 'jpg').toLowerCase();
       const fileName = `${conversationId}/${Date.now()}.${ext}`;
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri: pending.uri,
-        name: fileName,
-        type: `image/${ext}`,
-      } as unknown as Blob);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('chat-images')
-        .upload(fileName, formData, { upsert: false });
-
-      if (uploadError) throw uploadError;
+      const { path: uploadedPath } = await uploadFileToStorage(
+        'chat-images',
+        fileName,
+        pending.uri,
+        imageContentType(ext),
+      );
 
       // chat-images is a private bucket — a signed URL (not getPublicUrl,
       // which only works on public buckets) is what actually lets the
       // image load. See supabase/patch_006_chat_storage.sql.
       const { data: urlData, error: signError } = await supabase.storage
         .from('chat-images')
-        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+        .createSignedUrl(uploadedPath, 60 * 60 * 24 * 365);
       if (signError || !urlData) throw signError ?? new Error('Could not sign image URL');
 
       const { data, error: msgError } = await supabase
@@ -358,17 +353,16 @@ export default function ChatScreen() {
 
     try {
       const fileName = `${conversationId}/${Date.now()}.m4a`;
-      const formData = new FormData();
-      formData.append('file', { uri, name: fileName, type: 'audio/m4a' } as unknown as Blob);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('voice-notes')
-        .upload(fileName, formData, { upsert: false });
-      if (uploadError) throw uploadError;
+      const { path: uploadedPath } = await uploadFileToStorage(
+        'voice-notes',
+        fileName,
+        uri,
+        'audio/mp4',
+      );
 
       const { data: urlData, error: signError } = await supabase.storage
         .from('voice-notes')
-        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+        .createSignedUrl(uploadedPath, 60 * 60 * 24 * 365);
       if (signError || !urlData) throw signError ?? new Error('Could not sign voice note URL');
 
       const { data, error: msgError } = await supabase
