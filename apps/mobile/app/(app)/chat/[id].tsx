@@ -8,7 +8,7 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
-import { useTheme, type Palette } from '@/lib/theme';
+import { useTheme, useChatWallpaper, type Palette } from '@/lib/theme';
 import { Icon } from '@/components/Icon';
 import { Message } from '@/lib/types';
 import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
@@ -27,6 +27,7 @@ export default function ChatScreen() {
   const activeConversationRef = useActiveConversationRef();
   const Colors = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const { wallpaper } = useChatWallpaper();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -507,6 +508,9 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}
     >
+      {wallpaper.gradient && (
+        <LinearGradient colors={wallpaper.gradient} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      )}
       <FlatList
         ref={flatRef}
         data={messages}

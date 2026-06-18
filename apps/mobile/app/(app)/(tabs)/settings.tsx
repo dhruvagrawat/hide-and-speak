@@ -11,9 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
-import { useTheme, useThemeControls, type Palette } from '@/lib/theme';
+import { useTheme, useThemeControls, useChatWallpaper, type Palette } from '@/lib/theme';
 import { Avatar } from '@/components/Avatar';
 import { ScalePressable } from '@/components/AnimatedPressable';
 import { Icon, type IconName } from '@/components/Icon';
@@ -67,7 +68,8 @@ function Row({
 export default function SettingsScreen() {
   const Colors = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { themeKey, setTheme, themes } = useThemeControls();
+  const { themeKey, setTheme, themes, accentKey, setAccent, accents } = useThemeControls();
+  const { wallpaperKey, setWallpaper, wallpapers } = useChatWallpaper();
 
   const [profile, setProfile] = useState<Profile | null>(IS_DEMO ? DEMO_PROFILE : null);
   const [uploading, setUploading] = useState(false);
@@ -249,6 +251,70 @@ export default function SettingsScreen() {
             );
           })}
         </View>
+
+        {/* Accent colour */}
+        <View style={styles.divider} />
+        <View style={styles.themeRow}>
+          <View style={styles.rowIcon}>
+            <Icon name="sparkles" size={20} color={Colors.primaryLight} />
+          </View>
+          <Text style={styles.rowTitle}>Accent colour</Text>
+        </View>
+        <View style={styles.accentRow}>
+          {accents.map((a) => {
+            const active = a.key === accentKey;
+            const dot = a.color ?? Colors.primary;
+            return (
+              <TouchableOpacity
+                key={a.key}
+                onPress={() => setAccent(a.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`${a.name} accent`}
+                accessibilityState={{ selected: active }}
+                style={[styles.accentDot, { backgroundColor: dot }, active && styles.accentDotActive]}
+              >
+                {active && <Icon name="check" size={15} color="#fff" />}
+                {!a.color && !active && <Text style={styles.accentAuto}>A</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Chat wallpaper */}
+        <View style={styles.divider} />
+        <View style={styles.themeRow}>
+          <View style={styles.rowIcon}>
+            <Icon name="image" size={20} color={Colors.primaryLight} />
+          </View>
+          <Text style={styles.rowTitle}>Chat wallpaper</Text>
+        </View>
+        <View style={styles.swatchRow}>
+          {wallpapers.map((w) => {
+            const active = w.key === wallpaperKey;
+            return (
+              <TouchableOpacity
+                key={w.key}
+                style={styles.swatchItem}
+                onPress={() => setWallpaper(w.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`${w.name} wallpaper`}
+                accessibilityState={{ selected: active }}
+              >
+                <LinearGradient
+                  colors={w.gradient ?? [Colors.surface, Colors.background]}
+                  style={[styles.swatch, { borderColor: active ? Colors.primaryLight : Colors.border }, active && styles.swatchActive]}
+                >
+                  {active && (
+                    <View style={styles.swatchCheck}>
+                      <Icon name="check" size={14} color={Colors.primaryLight} />
+                    </View>
+                  )}
+                </LinearGradient>
+                <Text style={[styles.swatchLabel, active && { color: Colors.text }]}>{w.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* Privacy & security */}
@@ -406,6 +472,20 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
   swatchDot: { width: 12, height: 12, borderRadius: 6 },
   swatchCheck: { position: 'absolute', bottom: 3, right: 3 },
   swatchLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600' },
+
+  divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16, marginTop: 4 },
+  accentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, padding: 16 },
+  accentDot: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  accentDotActive: { borderColor: Colors.text },
+  accentAuto: { color: '#fff', fontSize: 14, fontWeight: '800' },
 
   modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: Colors.overlay },
   modalCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
