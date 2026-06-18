@@ -1,17 +1,16 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 
 /**
  * Real OS notifications (the tray/heads-up kind), as opposed to the in-app
- * banner in NewMessageBanner. Privacy-first like the rest of the app: we only
- * ever say *who* messaged, never the content.
+ * banner in NewMessageBanner. Privacy-first: we only ever say *who* messaged,
+ * never the content.
  *
- * Expo Go caveat: expo-notifications had its native push functionality
- * removed from Expo Go in SDK 53, so calling its APIs there throws. We detect
- * Expo Go and turn every function into a safe no-op — real notifications only
- * work (and are only needed) in a dev/preview build. Everything is also
- * wrapped in try/catch so a notification can never crash the app.
+ * Expo Go caveat: expo-notifications had its native push module removed from
+ * Expo Go in SDK 53, and *merely importing it there throws*. So we never
+ * statically import it — it's pulled in with a dynamic import() that only runs
+ * outside Expo Go. In Expo Go every function is a safe no-op; real
+ * notifications work in a dev/preview build, where they're actually needed.
  */
 
 // `appOwnership === 'expo'` is true only inside the Expo Go client; a
@@ -21,42 +20,55 @@ const isExpoGo = Constants.appOwnership === 'expo';
 const MESSAGES_CHANNEL = 'messages';
 const CALLS_CHANNEL = 'calls';
 
-let configured = false;
+type NotificationsModule = typeof import('expo-notifications');
+
+let modulePromise: Promise<NotificationsModule | null> | null = null;
 let permissionGranted: boolean | null = null;
 
-/** Set the foreground handler + Android channels, once. Never at import. */
-async function configure() {
-  if (configured || isExpoGo) return;
-  configured = true;
-  try {
-    // Show heads-up notifications even while foregrounded — that's the point
-    // of the Settings test button (you see the real OS banner immediately).
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync(MESSAGES_CHANNEL, {
-        name: 'Messages',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#7C3AED',
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
-      });
-      await Notifications.setNotificationChannelAsync(CALLS_CHANNEL, {
-        name: 'Calls',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 500, 500, 500],
-        lightColor: '#7C3AED',
-      });
-    }
-  } catch {
-    // Native module unavailable (e.g. Expo Go) — stay a no-op.
+/**
+ * Lazily load + configure expo-notifications. Returns null in Expo Go (or if
+ * the native module is unavailable for any reason), so callers stay no-ops.
+ * The dynamic import is what keeps Expo Go from ever evaluating the module.
+ */
+function getModule(): Promise<NotificationsModule | null> {
+  if (isExpoGo) return Promise.resolve(null);
+  if (!modulePromise) {
+    modulePromise = import('expo-notifications')
+      .then(async (Notifications) => {
+        try {
+          // Show heads-up notifications even while foregrounded — that's the
+          // point of the Settings test button.
+          Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowBanner: true,
+              shouldShowList: true,
+              shouldPlaySound: true,
+              shouldSetBadge: false,
+            }),
+          });
+          if (Platform.OS === 'android') {
+            await Notifications.setNotificationChannelAsync(MESSAGES_CHANNEL, {
+              name: 'Messages',
+              importance: Notifications.AndroidImportance.HIGH,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: '#7C3AED',
+              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+            });
+            await Notifications.setNotificationChannelAsync(CALLS_CHANNEL, {
+              name: 'Calls',
+              importance: Notifications.AndroidImportance.MAX,
+              vibrationPattern: [0, 500, 500, 500],
+              lightColor: '#7C3AED',
+            });
+          }
+        } catch {
+          // Configuration failed — still hand back the module; calls are guarded.
+        }
+        return Notifications;
+      })
+      .catch(() => null);
   }
+  return modulePromise;
 }
 
 /**
@@ -68,7 +80,8 @@ export async function ensureNotificationPermissions(): Promise<boolean> {
   if (isExpoGo) return false;
   if (permissionGranted !== null) return permissionGranted;
   try {
-    await configure();
+    const Notifications = await getModule();
+    if (!Notifications) return (permissionGranted = false);
     let status = (await Notifications.getPermissionsAsync()).status;
     if (status !== 'granted') {
       status = (await Notifications.requestPermissionsAsync()).status;
@@ -91,6 +104,8 @@ async function present(
   try {
     const granted = await ensureNotificationPermissions();
     if (!granted) return false;
+    const Notifications = await getModule();
+    if (!Notifications) return false;
     await Notifications.scheduleNotificationAsync({
       content: { title, body, data },
       // Android: deliver immediately on the given channel (heads-up importance).
@@ -127,17 +142,25 @@ export function addNotificationTapHandler(
   onOpenConversation: (conversationId: string) => void,
 ): () => void {
   if (isExpoGo) return () => {};
-  try {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as
-        | { type?: string; conversationId?: string }
-        | undefined;
-      if (data?.type === 'message' && data.conversationId) {
-        onOpenConversation(data.conversationId);
-      }
-    });
-    return () => sub.remove();
-  } catch {
-    return () => {};
-  }
+  let sub: { remove: () => void } | null = null;
+  let cancelled = false;
+  getModule().then((Notifications) => {
+    if (!Notifications || cancelled) return;
+    try {
+      sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as
+          | { type?: string; conversationId?: string }
+          | undefined;
+        if (data?.type === 'message' && data.conversationId) {
+          onOpenConversation(data.conversationId);
+        }
+      });
+    } catch {
+      // listener unavailable — ignore
+    }
+  });
+  return () => {
+    cancelled = true;
+    sub?.remove();
+  };
 }
