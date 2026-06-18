@@ -401,3 +401,54 @@ update public.profiles p
 set phone = u.phone
 from auth.users u
 where p.id = u.id and p.phone is null and u.phone is not null;
+
+-- ============================================================
+-- 7. REPLY + REACTIONS
+-- ============================================================
+
+-- Replies: a message can point at the message it's replying to.
+alter table public.messages add column if not exists reply_to_id uuid references public.messages(id) on delete set null;
+
+-- Reactions: one row per (message, user, emoji).
+create table if not exists public.message_reactions (
+  id          uuid primary key default gen_random_uuid(),
+  message_id  uuid not null references public.messages(id) on delete cascade,
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  emoji       text not null,
+  created_at  timestamptz not null default now(),
+  unique (message_id, user_id, emoji)
+);
+create index if not exists message_reactions_message_idx on public.message_reactions (message_id);
+
+alter table public.message_reactions enable row level security;
+
+-- You can see/add/remove reactions on messages in conversations you belong to.
+drop policy if exists "reactions_select" on public.message_reactions;
+create policy "reactions_select" on public.message_reactions for select
+  using (exists (
+    select 1 from public.messages m
+    where m.id = message_id and m.conversation_id in (select public.my_conversation_ids())
+  ));
+drop policy if exists "reactions_insert" on public.message_reactions;
+create policy "reactions_insert" on public.message_reactions for insert
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.messages m
+      where m.id = message_id and m.conversation_id in (select public.my_conversation_ids())
+    )
+  );
+drop policy if exists "reactions_delete" on public.message_reactions;
+create policy "reactions_delete" on public.message_reactions for delete
+  using (user_id = auth.uid());
+
+-- Realtime for reactions (live chips).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'message_reactions'
+  ) then
+    alter publication supabase_realtime add table public.message_reactions;
+  end if;
+end $$;

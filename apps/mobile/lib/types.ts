@@ -37,6 +37,15 @@ export interface Message {
   sender?: Profile;
   /** True when the image was delivered directly device-to-device (P2P), off-server. */
   via_p2p?: boolean;
+  /** Id of the message this one is replying to (null = not a reply). */
+  reply_to_id?: string | null;
+}
+
+export interface MessageReaction {
+  id?: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
 }
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';

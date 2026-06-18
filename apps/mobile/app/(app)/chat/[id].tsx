@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
-  View, Text, FlatList, TextInput, TouchableOpacity,
+  View, Text, FlatList, TextInput, TouchableOpacity, Pressable,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Alert,
+  Alert, Modal,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -10,7 +10,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useTheme, useChatWallpaper, type Palette } from '@/lib/theme';
 import { Icon } from '@/components/Icon';
-import { Message } from '@/lib/types';
+import { Message, MessageReaction } from '@/lib/types';
+
+/** Quick-reaction set shown in the long-press menu (reactions are emoji by nature). */
+const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+
+/** One-line preview of any message type, for reply quotes/bars. */
+function messageSnippet(m: Message | undefined): string {
+  if (!m) return 'Message';
+  if (m.message_type === 'image') return 'Photo';
+  if (m.message_type === 'voice_note') return 'Voice note';
+  return m.content ?? '';
+}
 import { ImageMessage, ImagePickerButton } from '@/components/ImageMessage';
 import type { PendingImage } from '@/lib/types';
 import { IS_DEMO, DEMO_USER_ID, DEMO_MESSAGES, DEMO_CONVERSATIONS } from '@/lib/demo';
@@ -37,6 +48,11 @@ export default function ChatScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [recipientId, setRecipientId] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+
+  // Reply + reactions
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [actionMsg, setActionMsg] = useState<Message | null>(null);
+  const [reactions, setReactions] = useState<Record<string, MessageReaction[]>>({});
 
   const flatRef = useRef<FlatList>(null);
   const recipientOnline = useIsOnline(recipientId);
@@ -128,7 +144,16 @@ export default function ChatScreen() {
     if (error) {
       console.error('fetchMessages error:', error.message);
     } else {
-      setMessages((data as Message[]) ?? []);
+      const msgs = (data as Message[]) ?? [];
+      setMessages(msgs);
+      // Load reactions for these messages.
+      const ids = msgs.map((m) => m.id);
+      if (ids.length) {
+        const { data: rx } = await supabase.from('message_reactions').select('*').in('message_id', ids);
+        const map: Record<string, MessageReaction[]> = {};
+        for (const r of (rx as MessageReaction[]) ?? []) (map[r.message_id] ??= []).push(r);
+        setReactions(map);
+      }
     }
     setLoading(false);
   }, [conversationId]);
@@ -170,12 +195,59 @@ export default function ChatScreen() {
           });
         },
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_reactions' },
+        (payload) => {
+          // RLS already limits these to messages we can see; apply add/remove.
+          if (payload.eventType === 'INSERT') {
+            const r = payload.new as MessageReaction;
+            setReactions((prev) => {
+              const list = prev[r.message_id] ?? [];
+              if (list.some((x) => x.user_id === r.user_id && x.emoji === r.emoji)) return prev;
+              return { ...prev, [r.message_id]: [...list, r] };
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const r = payload.old as MessageReaction;
+            setReactions((prev) => {
+              const list = prev[r.message_id];
+              if (!list) return prev;
+              return { ...prev, [r.message_id]: list.filter((x) => !(x.user_id === r.user_id && x.emoji === r.emoji)) };
+            });
+          }
+        },
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [conversationId, fetchMessages]);
+
+  // ── Reactions ──────────────────────────────
+  const toggleReaction = async (message: Message, emoji: string) => {
+    if (!currentUserId) return;
+    setActionMsg(null);
+    const mine = (reactions[message.id] ?? []).some(
+      (r) => r.user_id === currentUserId && r.emoji === emoji,
+    );
+    // Optimistic
+    setReactions((prev) => {
+      const list = prev[message.id] ?? [];
+      return {
+        ...prev,
+        [message.id]: mine
+          ? list.filter((r) => !(r.user_id === currentUserId && r.emoji === emoji))
+          : [...list, { message_id: message.id, user_id: currentUserId, emoji }],
+      };
+    });
+    if (IS_DEMO) return;
+    if (mine) {
+      await supabase.from('message_reactions').delete().match({ message_id: message.id, user_id: currentUserId, emoji });
+    } else {
+      await supabase.from('message_reactions').insert({ message_id: message.id, user_id: currentUserId, emoji });
+    }
+  };
 
   // ── Send text message ──────────────────────
   const sendText = async () => {
@@ -184,6 +256,8 @@ export default function ChatScreen() {
 
     setText('');
     setSending(true);
+    const replyId = replyTo?.id ?? null;
+    setReplyTo(null);
 
     // Optimistic update — show the message immediately
     const optimisticId = `opt_${Date.now()}`;
@@ -198,6 +272,7 @@ export default function ChatScreen() {
       image_filter: null,
       voice_note_url: null,
       created_at: new Date().toISOString(),
+      reply_to_id: replyId,
     };
     setMessages((prev) => [optimistic, ...prev]);
 
@@ -214,6 +289,7 @@ export default function ChatScreen() {
         sender_id: currentUserId,
         content: trimmed,
         message_type: 'text',
+        reply_to_id: replyId,
       })
       .select()
       .single();
@@ -401,8 +477,28 @@ export default function ChatScreen() {
     isOptimistic: boolean;
   }) => {
     const tintTime = isMine ? styles.timestampMine : styles.timestamp;
+    const replied = item.reply_to_id ? messages.find((m) => m.id === item.reply_to_id) : undefined;
+
+    // Aggregate reactions by emoji for this message.
+    const rx = reactions[item.id] ?? [];
+    const counts = new Map<string, number>();
+    const mineSet = new Set<string>();
+    for (const r of rx) {
+      counts.set(r.emoji, (counts.get(r.emoji) ?? 0) + 1);
+      if (r.user_id === currentUserId) mineSet.add(r.emoji);
+    }
+
     return (
       <>
+        {item.reply_to_id && (
+          <View style={[styles.quoted, isMine ? styles.quotedMine : styles.quotedTheirs]}>
+            <Text style={styles.quotedName} numberOfLines={1}>
+              {replied && replied.sender_id === currentUserId ? 'You' : (username ?? 'Them')}
+            </Text>
+            <Text style={styles.quotedText} numberOfLines={1}>{messageSnippet(replied)}</Text>
+          </View>
+        )}
+
         {item.message_type === 'image' && item.image_url ? (
           <ImageMessage
             imageUrl={item.image_url}
@@ -421,6 +517,21 @@ export default function ChatScreen() {
           <Text style={tintTime}>{time}</Text>
           {isOptimistic && <Text style={styles.sendingDot}>  ·  sending…</Text>}
         </View>
+
+        {counts.size > 0 && (
+          <View style={styles.reactionRow}>
+            {[...counts.entries()].map(([emoji, count]) => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => toggleReaction(item, emoji)}
+                style={[styles.reactionChip, mineSet.has(emoji) && styles.reactionChipMine]}
+              >
+                <Text style={styles.reactionEmoji}>{emoji}</Text>
+                {count > 1 && <Text style={styles.reactionCount}>{count}</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </>
     );
   };
@@ -460,33 +571,39 @@ export default function ChatScreen() {
           </View>
         )}
 
-        {isMine ? (
-          <LinearGradient
-            colors={Colors.sentBubbleGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[
-              styles.bubble,
-              styles.bubbleMine,
-              isFirstInGroup && styles.bubbleMineFirst,
-              isLastInGroup && styles.bubbleMineLast,
-              isOptimistic && styles.bubbleOptimistic,
-            ]}
-          >
-            <BubbleContent item={item} isMine time={time} isOptimistic={isOptimistic} />
-          </LinearGradient>
-        ) : (
-          <View
-            style={[
-              styles.bubble,
-              styles.bubbleTheirs,
-              isFirstInGroup && styles.bubbleTheirsFirst,
-              isLastInGroup && styles.bubbleTheirsLast,
-            ]}
-          >
-            <BubbleContent item={item} isMine={false} time={time} isOptimistic={false} />
-          </View>
-        )}
+        <Pressable
+          style={styles.bubbleWrap}
+          onLongPress={() => setActionMsg(item)}
+          delayLongPress={220}
+        >
+          {isMine ? (
+            <LinearGradient
+              colors={Colors.sentBubbleGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[
+                styles.bubble,
+                styles.bubbleMine,
+                isFirstInGroup && styles.bubbleMineFirst,
+                isLastInGroup && styles.bubbleMineLast,
+                isOptimistic && styles.bubbleOptimistic,
+              ]}
+            >
+              <BubbleContent item={item} isMine time={time} isOptimistic={isOptimistic} />
+            </LinearGradient>
+          ) : (
+            <View
+              style={[
+                styles.bubble,
+                styles.bubbleTheirs,
+                isFirstInGroup && styles.bubbleTheirsFirst,
+                isLastInGroup && styles.bubbleTheirsLast,
+              ]}
+            >
+              <BubbleContent item={item} isMine={false} time={time} isOptimistic={false} />
+            </View>
+          )}
+        </Pressable>
       </Animated.View>
     );
   };
@@ -517,6 +634,21 @@ export default function ChatScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Reply preview bar */}
+      {replyTo && (
+        <View style={styles.replyBar}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.replyName}>
+              Replying to {replyTo.sender_id === currentUserId ? 'yourself' : (username ?? 'them')}
+            </Text>
+            <Text style={styles.replyText} numberOfLines={1}>{messageSnippet(replyTo)}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setReplyTo(null)} hitSlop={8} accessibilityLabel="Cancel reply">
+            <Icon name="close" size={20} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.inputBar}>
         <View style={styles.composer}>
@@ -551,6 +683,35 @@ export default function ChatScreen() {
           <VoiceRecorderButton onRecorded={sendVoiceNote} />
         )}
       </View>
+
+      {/* Long-press action menu: react or reply */}
+      <Modal visible={!!actionMsg} transparent animationType="fade" onRequestClose={() => setActionMsg(null)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setActionMsg(null)}>
+          <View style={styles.menuSheet}>
+            <View style={styles.reactionPicker}>
+              {REACTIONS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={styles.reactionPickBtn}
+                  onPress={() => actionMsg && toggleReaction(actionMsg, emoji)}
+                >
+                  <Text style={styles.reactionPickEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.menuAction}
+              onPress={() => {
+                setReplyTo(actionMsg);
+                setActionMsg(null);
+              }}
+            >
+              <Icon name="back" size={20} color={Colors.text} />
+              <Text style={styles.menuActionText}>Reply</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -593,8 +754,8 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
 
+  bubbleWrap: { maxWidth: '78%' },
   bubble: {
-    maxWidth: '78%',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 9,
@@ -629,6 +790,37 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
+
+  // Quoted reply (inside a bubble)
+  quoted: {
+    borderLeftWidth: 3,
+    borderRadius: 6,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  quotedMine: { borderLeftColor: 'rgba(255,255,255,0.8)', backgroundColor: 'rgba(255,255,255,0.12)' },
+  quotedTheirs: { borderLeftColor: Colors.primaryLight, backgroundColor: 'rgba(255,255,255,0.04)' },
+  quotedName: { color: Colors.primaryLight, fontSize: 12, fontWeight: '700' },
+  quotedText: { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
+
+  // Reaction chips (under a bubble)
+  reactionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  reactionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  reactionChipMine: { borderColor: Colors.primaryLight, backgroundColor: Colors.primaryDark },
+  reactionEmoji: { fontSize: 13 },
+  reactionCount: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   timestampRow: {
     flexDirection: 'row',
@@ -695,4 +887,54 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     alignItems: 'center',
   },
   sendBtnDisabled: { opacity: 0.45 },
+
+  // Reply preview bar (above composer)
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 12,
+    marginBottom: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primaryLight,
+  },
+  replyName: { color: Colors.primaryLight, fontSize: 12, fontWeight: '700' },
+  replyText: { color: Colors.textSecondary, fontSize: 13, marginTop: 1 },
+
+  // Long-press action menu
+  menuBackdrop: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'flex-end' },
+  menuSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 10,
+    paddingBottom: 36,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderColor: Colors.border,
+  },
+  reactionPicker: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 28,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    marginBottom: 12,
+  },
+  reactionPickBtn: { padding: 6 },
+  reactionPickEmoji: { fontSize: 28 },
+  menuAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+  },
+  menuActionText: { color: Colors.text, fontSize: 16, fontWeight: '600' },
 });
