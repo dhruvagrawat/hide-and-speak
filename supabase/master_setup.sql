@@ -113,13 +113,22 @@ create index if not exists stories_created_at_idx  on public.stories (created_at
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  -- Single-auth design: the user verifies EITHER email OR phone, and supplies
+  -- the *other* identifier as plain signup metadata (no second verification).
+  -- So pull email/phone/username from the verified auth columns first, then
+  -- fall back to whatever was passed in raw_user_meta_data at signup.
   insert into public.profiles (id, email, phone, username)
   values (
     new.id,
-    new.email,
-    new.phone,
-    coalesce(split_part(new.email, '@', 1), 'user_' || substr(new.id::text, 1, 8))
-  );
+    coalesce(new.email, nullif(new.raw_user_meta_data->>'email', '')),
+    coalesce(new.phone, nullif(new.raw_user_meta_data->>'phone', '')),
+    coalesce(
+      nullif(new.raw_user_meta_data->>'username', ''),
+      split_part(new.email, '@', 1),
+      'user_' || substr(new.id::text, 1, 8)
+    )
+  )
+  on conflict (id) do nothing;
   return new;
 end;
 $$;
