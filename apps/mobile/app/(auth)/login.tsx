@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { sendPhoneOtp } from '@/lib/auth';
 import { Colors } from '@/constants/colors';
 import { LogoMark, Wordmark } from '@/components/Logo';
@@ -24,8 +24,23 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
 
+  // Guard every auth action: if the build shipped without Supabase env vars,
+  // the client points at a placeholder host and every request dies with a
+  // cryptic DNS error. Fail loudly and clearly instead.
+  const backendReady = () => {
+    if (!isSupabaseConfigured) {
+      Alert.alert(
+        'Not connected',
+        'This build is missing its backend configuration (EXPO_PUBLIC_SUPABASE_URL / ANON_KEY). Rebuild with those env vars set.',
+      );
+      return false;
+    }
+    return true;
+  };
+
   // ── Email login ───────────────────────────
   const handleEmailLogin = async () => {
+    if (!backendReady()) return;
     if (!email.trim() || !password) {
       Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
@@ -41,6 +56,7 @@ export default function Login() {
 
   // ── Phone OTP ─────────────────────────────
   const handlePhoneSend = async () => {
+    if (!backendReady()) return;
     const trimmed = phone.trim();
     if (!trimmed) {
       Alert.alert('Missing field', 'Please enter your phone number.');
@@ -77,6 +93,14 @@ export default function Login() {
         </View>
 
         <View style={styles.card}>
+          {!isSupabaseConfigured && (
+            <View style={styles.warnBanner}>
+              <Text style={styles.warnText}>
+                Backend not configured — this build is missing its Supabase env vars. Auth won’t work until it’s rebuilt with them.
+              </Text>
+            </View>
+          )}
+
           {/* Tab switcher: Email / Phone */}
           <View style={styles.tabRow}>
             <TouchableOpacity
@@ -177,6 +201,15 @@ const styles = StyleSheet.create({
     padding: 24, borderWidth: 1, borderColor: Colors.border,
   },
 
+  warnBanner: {
+    backgroundColor: 'rgba(255,152,0,0.12)',
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  warnText: { color: Colors.warning, fontSize: 12, lineHeight: 17 },
   tabRow: {
     flexDirection: 'row', marginBottom: 20,
     backgroundColor: Colors.inputBg, borderRadius: 12, padding: 4,

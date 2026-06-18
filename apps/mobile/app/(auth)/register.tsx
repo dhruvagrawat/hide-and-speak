@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { sendPhoneOtp } from '@/lib/auth';
 import { Colors } from '@/constants/colors';
 import { LogoMark, Wordmark } from '@/components/Logo';
@@ -28,8 +28,20 @@ export default function Register() {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const backendReady = () => {
+    if (!isSupabaseConfigured) {
+      Alert.alert(
+        'Not connected',
+        'This build is missing its backend configuration (EXPO_PUBLIC_SUPABASE_URL / ANON_KEY). Rebuild with those env vars set.',
+      );
+      return false;
+    }
+    return true;
+  };
+
   // ── Register with email (phone optional, stored only) ──
   const handleEmailRegister = async () => {
+    if (!backendReady()) return;
     if (!username.trim() || !email.trim() || !password || !confirm) {
       Alert.alert('Missing fields', 'Username, email and password are required.');
       return;
@@ -71,6 +83,7 @@ export default function Register() {
 
   // ── Register with phone (email optional, stored only) ──
   const handlePhoneRegister = async () => {
+    if (!backendReady()) return;
     const p = phone.trim();
     if (!username.trim() || !p) {
       Alert.alert('Missing fields', 'Username and phone number are required.');
