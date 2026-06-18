@@ -40,6 +40,20 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
+-- Safety net for projects whose `profiles` table predates these columns:
+-- `create table if not exists` above won't alter an existing table, so add
+-- any missing columns explicitly (idempotent — safe to re-run).
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists avatar_url text;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'profiles_phone_key'
+  ) then
+    alter table public.profiles add constraint profiles_phone_key unique (phone);
+  end if;
+end $$;
+
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
