@@ -452,3 +452,44 @@ begin
     alter publication supabase_realtime add table public.message_reactions;
   end if;
 end $$;
+
+-- ============================================================
+-- 8. GROUP CHATS
+-- ============================================================
+
+-- Conversations can be 1:1 (default) or named groups with many members.
+alter table public.conversations add column if not exists is_group   boolean not null default false;
+alter table public.conversations add column if not exists name       text;
+alter table public.conversations add column if not exists avatar_url text;
+alter table public.conversations add column if not exists created_by uuid references public.profiles(id);
+
+-- Create a group + add the creator and the chosen members in one shot.
+-- Security definer so it can insert members under RLS (same pattern as
+-- create_conversation). Returns the new conversation id.
+create or replace function public.create_group_conversation(group_name text, member_ids uuid[])
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  conv_id uuid;
+  m       uuid;
+begin
+  if coalesce(trim(group_name), '') = '' then
+    raise exception 'Group name is required';
+  end if;
+
+  insert into public.conversations (is_group, name, created_by)
+  values (true, trim(group_name), auth.uid())
+  returning id into conv_id;
+
+  insert into public.conversation_members (conversation_id, user_id)
+  values (conv_id, auth.uid())
+  on conflict do nothing;
+
+  foreach m in array coalesce(member_ids, '{}') loop
+    insert into public.conversation_members (conversation_id, user_id)
+    values (conv_id, m)
+    on conflict do nothing;
+  end loop;
+
+  return conv_id;
+end;
+$$;

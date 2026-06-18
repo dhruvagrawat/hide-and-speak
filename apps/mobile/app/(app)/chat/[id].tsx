@@ -34,7 +34,8 @@ import { Avatar } from '@/components/Avatar';
 import { VoiceRecorderButton, VoiceNoteBubble } from '@/components/VoiceNote';
 
 export default function ChatScreen() {
-  const { id: conversationId, username } = useLocalSearchParams<{ id: string; username: string }>();
+  const { id: conversationId, username, isGroup: isGroupParam } = useLocalSearchParams<{ id: string; username: string; isGroup?: string }>();
+  const isGroup = isGroupParam === '1';
   const navigation = useNavigation();
   const activeConversationRef = useActiveConversationRef();
   const Colors = useTheme();
@@ -85,16 +86,21 @@ export default function ChatScreen() {
           <Avatar username={username} avatarUrl={null} size={34} />
           <View>
             <Text style={styles.headerTitle}>{username ?? 'Chat'}</Text>
-            <View style={styles.headerPresenceRow}>
-              {recipientOnline && <View style={styles.headerOnlineDot} />}
-              <Text style={[styles.headerSubtitle, recipientOnline && { color: Colors.success }]}>
-                {recipientOnline ? 'Online' : 'Offline'}
-              </Text>
-            </View>
+            {isGroup ? (
+              <Text style={styles.headerSubtitle}>Group</Text>
+            ) : (
+              <View style={styles.headerPresenceRow}>
+                {recipientOnline && <View style={styles.headerOnlineDot} />}
+                <Text style={[styles.headerSubtitle, recipientOnline && { color: Colors.success }]}>
+                  {recipientOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       ),
-      headerRight: () => (
+      // Calls are 1:1 only — no call buttons in group chats.
+      headerRight: isGroup ? undefined : () => (
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => startCall('voice')} hitSlop={8} accessibilityLabel="Voice call">
             <Icon name="call" size={21} color={Colors.text} />
@@ -105,7 +111,7 @@ export default function ChatScreen() {
         </View>
       ),
     });
-  }, [navigation, username, recipientOnline, startCall, styles, Colors]);
+  }, [navigation, username, recipientOnline, startCall, styles, Colors, isGroup]);
 
   useEffect(() => {
     if (IS_DEMO) {
@@ -119,6 +125,9 @@ export default function ChatScreen() {
       setCurrentUserId(user.id);
       currentUserIdRef.current = user.id;
 
+      // Groups have many members — no single "recipient" (and .single() would
+      // error). Presence/calls are 1:1 only.
+      if (isGroup) return;
       const { data } = await supabase
         .from('conversation_members')
         .select('user_id')
@@ -127,7 +136,7 @@ export default function ChatScreen() {
         .single();
       if (data) setRecipientId(data.user_id);
     });
-  }, [conversationId]);
+  }, [conversationId, isGroup]);
 
   const fetchMessages = useCallback(async () => {
     if (IS_DEMO) {
@@ -470,11 +479,13 @@ export default function ChatScreen() {
     isMine,
     time,
     isOptimistic,
+    showSender,
   }: {
     item: Message;
     isMine: boolean;
     time: string;
     isOptimistic: boolean;
+    showSender?: boolean;
   }) => {
     const tintTime = isMine ? styles.timestampMine : styles.timestamp;
     const replied = item.reply_to_id ? messages.find((m) => m.id === item.reply_to_id) : undefined;
@@ -490,6 +501,9 @@ export default function ChatScreen() {
 
     return (
       <>
+        {showSender && (
+          <Text style={styles.groupSender}>{item.sender?.username ?? 'Member'}</Text>
+        )}
         {item.reply_to_id && (
           <View style={[styles.quoted, isMine ? styles.quotedMine : styles.quotedTheirs]}>
             <Text style={styles.quotedName} numberOfLines={1}>
@@ -600,7 +614,7 @@ export default function ChatScreen() {
                 isLastInGroup && styles.bubbleTheirsLast,
               ]}
             >
-              <BubbleContent item={item} isMine={false} time={time} isOptimistic={false} />
+              <BubbleContent item={item} isMine={false} time={time} isOptimistic={false} showSender={isGroup && isFirstInGroup} />
             </View>
           )}
         </Pressable>
@@ -790,6 +804,7 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
+  groupSender: { color: Colors.primaryLight, fontSize: 12, fontWeight: '700', marginBottom: 2 },
 
   // Quoted reply (inside a bubble)
   quoted: {

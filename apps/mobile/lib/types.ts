@@ -21,6 +21,10 @@ export interface Conversation {
   last_message_type?: 'text' | 'image' | 'voice_note';
   last_message_at?: string;
   unread_count?: number;
+  /** Group chats: name + member count; other_user is unused for groups. */
+  is_group?: boolean;
+  name?: string;
+  member_count?: number;
 }
 
 export interface Message {
