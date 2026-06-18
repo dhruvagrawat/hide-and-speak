@@ -112,21 +112,40 @@ create index if not exists stories_created_at_idx  on public.stories (created_at
 -- Auto-create a profile row when someone signs up (email or phone OTP).
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  base_username text;
+  candidate     text;
+  suffix        int := 0;
 begin
   -- Single-auth design: the user verifies EITHER email OR phone, and supplies
   -- the *other* identifier as plain signup metadata (no second verification).
-  -- So pull email/phone/username from the verified auth columns first, then
-  -- fall back to whatever was passed in raw_user_meta_data at signup.
+  -- Pull email/phone/username from the verified auth columns first, then fall
+  -- back to whatever was passed in raw_user_meta_data at signup.
+  base_username := coalesce(
+    nullif(new.raw_user_meta_data->>'username', ''),
+    nullif(split_part(new.email, '@', 1), ''),
+    'user_' || substr(new.id::text, 1, 8)
+  );
+
+  -- Usernames are UNIQUE, so a collision would otherwise abort the whole
+  -- signup transaction ("Database error saving new user" / 500). Append a
+  -- numeric suffix until we find a free one so signup can never fail here.
+  candidate := base_username;
+  while exists (select 1 from public.profiles where username = candidate) loop
+    suffix := suffix + 1;
+    candidate := base_username || suffix::text;
+    if suffix > 50 then
+      candidate := base_username || '_' || substr(md5(new.id::text || clock_timestamp()::text), 1, 6);
+      exit;
+    end if;
+  end loop;
+
   insert into public.profiles (id, email, phone, username)
   values (
     new.id,
     coalesce(new.email, nullif(new.raw_user_meta_data->>'email', '')),
     coalesce(new.phone, nullif(new.raw_user_meta_data->>'phone', '')),
-    coalesce(
-      nullif(new.raw_user_meta_data->>'username', ''),
-      split_part(new.email, '@', 1),
-      'user_' || substr(new.id::text, 1, 8)
-    )
+    candidate
   )
   on conflict (id) do nothing;
   return new;
