@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { sendPhoneOtp } from '@/lib/auth';
@@ -59,7 +59,7 @@ export default function Register() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
@@ -72,12 +72,13 @@ export default function Register() {
     setLoading(false);
     if (error) {
       Alert.alert('Registration failed', error.message);
+    } else if (data.session) {
+      // Email confirmation is off — already signed in; root layout redirects.
     } else {
-      Alert.alert(
-        'Almost there',
-        'If email confirmation is on, tap the link we emailed you. Otherwise just sign in.',
-        [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }],
-      );
+      // Confirmation required — show a clear "check your inbox" screen.
+      // Cast: the typed-route union only regenerates on `expo start`, but this
+      // file-based route exists and resolves at runtime.
+      router.replace(`/(auth)/verify-email?email=${encodeURIComponent(email.trim())}` as Href);
     }
   };
 

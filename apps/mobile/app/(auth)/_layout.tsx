@@ -13,6 +13,7 @@ export default function AuthLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="otp" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="verify-email" options={{ animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }

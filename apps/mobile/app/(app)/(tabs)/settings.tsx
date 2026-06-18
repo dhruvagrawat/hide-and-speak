@@ -80,15 +80,28 @@ export default function SettingsScreen() {
 
   const { lock, canAuthenticate, enabled: appLockEnabled, setEnabled: setAppLockEnabled } = useAppLock();
   const { simulateIncoming } = useCalls();
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (IS_DEMO) return;
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
+      // Surface an "email not confirmed" indicator (the confirmation step is
+      // easy to miss). Phone-only users have no email → nothing to verify.
+      if (user.email && !user.email_confirmed_at) setUnverifiedEmail(user.email);
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       if (data) setProfile(data as Profile);
     });
   }, []);
+
+  const resendConfirmation = async () => {
+    if (!unverifiedEmail) return;
+    const { error } = await supabase.auth.resend({ type: 'signup', email: unverifiedEmail });
+    Alert.alert(
+      error ? 'Could not resend' : 'Sent',
+      error ? error.message : `Confirmation link re-sent to ${unverifiedEmail}.`,
+    );
+  };
 
   const changePhoto = async () => {
     if (IS_DEMO) {
@@ -203,6 +216,17 @@ export default function SettingsScreen() {
           <Text style={styles.profileEmail}>{profile?.email ?? ''}</Text>
         </View>
       </Animated.View>
+
+      {/* Email-not-confirmed nudge */}
+      {unverifiedEmail && (
+        <TouchableOpacity style={styles.verifyBanner} onPress={resendConfirmation} activeOpacity={0.85}>
+          <Icon name="mail" size={18} color={Colors.warning} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.verifyTitle}>Email not confirmed</Text>
+            <Text style={styles.verifySub}>Tap to resend the link to {unverifiedEmail}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Account */}
       <Text style={styles.sectionLabel}>Account</Text>
@@ -492,6 +516,20 @@ const makeStyles = (Colors: Palette) => StyleSheet.create({
   swatchCheck: { position: 'absolute', bottom: 3, right: 3 },
   swatchLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600' },
 
+  verifyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,152,0,0.12)',
+    borderWidth: 1,
+    borderColor: Colors.warning,
+  },
+  verifyTitle: { color: Colors.warning, fontSize: 14, fontWeight: '700' },
+  verifySub: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16, marginTop: 4 },
   accentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, padding: 16 },
   accentDot: {
