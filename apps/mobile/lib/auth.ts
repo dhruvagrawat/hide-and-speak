@@ -56,8 +56,17 @@ export async function signInWithGoogle(): Promise<void> {
  *  3. Enter your Vonage API Key + API Secret (see root .env.local — never commit real keys here)
  *  4. Set "From" to your Vonage virtual number
  */
-export async function sendPhoneOtp(phone: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithOtp({ phone });
+export async function sendPhoneOtp(
+  phone: string,
+  // Passed only when registering via phone — stored as signup metadata so the
+  // profile trigger can save the username + (unverified) email. Ignored by
+  // Supabase for users who already exist (i.e. plain login).
+  data?: { username?: string; email?: string },
+): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({
+    phone,
+    options: data ? { data } : undefined,
+  });
   if (error) throw error;
 }
 

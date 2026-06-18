@@ -91,7 +91,9 @@ export function CallOverlay() {
         ? `Incoming ${isVideo ? 'video' : 'voice'} call`
         : call.status === 'connected'
           ? formatDuration(seconds)
-          : 'Call ended';
+          : call.status === 'failed'
+            ? (call.error ?? 'Couldn’t connect')
+            : 'Call ended';
 
   return (
     <Modal visible animationType="slide" statusBarTranslucent>
@@ -126,7 +128,11 @@ export function CallOverlay() {
 
         {/* Controls */}
         <Animated.View entering={FadeInUp.duration(400)} style={styles.controls}>
-          {call.status === 'incoming' ? (
+          {call.status === 'failed' || call.status === 'ended' ? (
+            <View style={styles.endRow}>
+              <CallButton color="rgba(255,255,255,0.18)" icon="close" label="Close" onPress={end} big />
+            </View>
+          ) : call.status === 'incoming' ? (
             <View style={styles.incomingRow}>
               <CallButton color={Colors.error} icon="callEnd" rotate={135} label="Decline" onPress={end} />
               <CallButton color={Colors.success} icon="call" label="Accept" onPress={accept} />

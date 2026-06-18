@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
 import { BrandSplash } from '@/components/BrandSplash';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ensureNotificationPermissions, addNotificationTapHandler } from '@/lib/notifications';
 
 export default function RootLayout() {
@@ -71,14 +72,16 @@ export default function RootLayout() {
   );
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <ThemeProvider>
-        <StatusBar style="light" />
-        {/* Only lock once there's actually something private to protect —
-            no point gating the login/register screens behind biometrics. */}
-        {isAuthenticated ? <AppLockProvider>{stack}</AppLockProvider> : stack}
-      </ThemeProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={styles.root}>
+        <ThemeProvider>
+          <StatusBar style="light" />
+          {/* Only lock once there's actually something private to protect —
+              no point gating the login/register screens behind biometrics. */}
+          {isAuthenticated ? <AppLockProvider>{stack}</AppLockProvider> : stack}
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

@@ -12,7 +12,7 @@ import { IS_DEMO, DEMO_USER_ID } from './demo';
 import { loadWebRTC, isCallMediaAvailable, ICE_SERVERS, WebRTCModule } from './webrtc';
 
 export type CallMode = 'voice' | 'video';
-export type CallStatus = 'outgoing' | 'incoming' | 'connected' | 'ended';
+export type CallStatus = 'outgoing' | 'incoming' | 'connected' | 'ended' | 'failed';
 
 export interface CallPeer {
   id: string;
@@ -26,7 +26,12 @@ export interface ActiveCall {
   status: CallStatus;
   peer: CallPeer;
   isCaller: boolean;
+  /** Set when status is 'failed' — shown to the user (e.g. "Couldn't connect"). */
+  error?: string;
 }
+
+/** How long an outgoing call rings before we give up and show "couldn't connect". */
+const CONNECT_TIMEOUT_MS = 30_000;
 
 interface CallContextValue {
   call: ActiveCall | null;
@@ -82,11 +87,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const localStreamRef = useRef<any>(null);
   const rtcRef = useRef<WebRTCModule | null>(null);
   const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Teardown ───────────────────────────────
   const cleanup = useCallback(() => {
     if (demoTimerRef.current) clearTimeout(demoTimerRef.current);
     demoTimerRef.current = null;
+    if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
+    connectTimerRef.current = null;
     try {
       localStreamRef.current?.getTracks?.().forEach((t: any) => t.stop());
     } catch {
@@ -116,6 +124,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCall((c) => (c ? { ...c, status: 'ended' } : null));
     setTimeout(() => setCall(null), 250);
   }, [cleanup]);
+
+  // Tear down media/signaling but keep a "failed" card up so the user sees
+  // *why* (e.g. couldn't connect), then auto-dismiss.
+  const failCall = useCallback(
+    (message: string) => {
+      cleanup();
+      setCall((c) => (c && c.status !== 'connected' ? { ...c, status: 'failed', error: message } : c));
+      setTimeout(() => setCall((c) => (c?.status === 'failed' ? null : c)), 3500);
+    },
+    [cleanup],
+  );
 
   // ── Media setup (no-op when native module absent) ──
   const startMedia = useCallback(async (mode: CallMode, isCaller: boolean) => {
@@ -167,6 +186,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       channel
         .on('broadcast', { event: 'accept' }, () => {
+          if (connectTimerRef.current) clearTimeout(connectTimerRef.current);
+          connectTimerRef.current = null;
           setCall((c) => (c ? { ...c, status: 'connected' } : c));
         })
         .on('broadcast', { event: 'reject' }, () => end())
@@ -241,9 +262,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
           supabase.removeChannel(invite);
         }
       });
-      startMedia(mode, true);
+      // Media is best-effort (signaling-only is fine); never let it crash the call.
+      startMedia(mode, true).catch(() => setMediaActive(false));
+      // Give up if they never answer.
+      connectTimerRef.current = setTimeout(() => {
+        failCall(`${peer.name || 'They'} didn’t answer — couldn’t connect.`);
+      }, CONNECT_TIMEOUT_MS);
     },
-    [joinCallChannel, startMedia],
+    [joinCallChannel, startMedia, failCall],
   );
 
   // ── Demo-only: simulate an incoming call ───

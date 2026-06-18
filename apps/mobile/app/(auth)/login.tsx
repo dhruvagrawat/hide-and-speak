@@ -6,7 +6,7 @@ import {
 import { Link, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
-import { signInWithGoogle, sendPhoneOtp } from '@/lib/auth';
+import { sendPhoneOtp } from '@/lib/auth';
 import { Colors } from '@/constants/colors';
 import { LogoMark, Wordmark } from '@/components/Logo';
 
@@ -23,7 +23,6 @@ export default function Login() {
   const [phone, setPhone] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   // ── Email login ───────────────────────────
   const handleEmailLogin = async () => {
@@ -59,18 +58,6 @@ export default function Login() {
       Alert.alert('Error', e instanceof Error ? e.message : 'Could not send OTP.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // ── Google OAuth ──────────────────────────
-  const handleGoogle = async () => {
-    setGoogleLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (e: unknown) {
-      Alert.alert('Google sign-in failed', e instanceof Error ? e.message : 'Something went wrong.');
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
@@ -165,30 +152,6 @@ export default function Login() {
             </>
           )}
 
-          {/* ── Divider ── */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* ── Google button ── */}
-          <TouchableOpacity
-            style={[styles.googleBtn, googleLoading && styles.buttonDisabled]}
-            onPress={handleGoogle}
-            disabled={googleLoading}
-            activeOpacity={0.85}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color={Colors.text} />
-            ) : (
-              <>
-                <View style={styles.googleIconWrap}><Text style={styles.googleIconText}>G</Text></View>
-                <Text style={styles.googleText}>Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
           <View style={styles.linkRow}>
             <Text style={styles.linkText}>No account? </Text>
             <Link href="/(auth)/register" asChild>
@@ -241,23 +204,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.textMuted, fontSize: 12, marginHorizontal: 12 },
-
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.surfaceAlt, borderRadius: 12, paddingVertical: 14,
-    borderWidth: 1, borderColor: Colors.border, gap: 10,
-  },
-  googleIconWrap: {
-    width: 26, height: 26, borderRadius: 13, backgroundColor: '#4285F4',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  googleIconText: { fontSize: 14, fontWeight: '900', color: '#fff' },
-  googleText: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-
-  linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
+  linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   linkText: { color: Colors.textSecondary, fontSize: 14 },
   linkHighlight: { color: Colors.primaryLight, fontWeight: '600' },
 });

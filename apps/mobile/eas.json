@@ -12,7 +12,7 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_DEMO_MODE": "true"
+        "EXPO_PUBLIC_DEMO_MODE": "false"
       },
       "android": {
         "buildType": "apk"
